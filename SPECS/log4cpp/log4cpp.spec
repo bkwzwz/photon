@@ -58,4 +58,5 @@ make DESTDIR=%{buildroot} install
 %_prefix/lib/pkgconfig/log4cpp.pc
 %_prefix/share/aclocal/*.m4
 
+%changelog
 
