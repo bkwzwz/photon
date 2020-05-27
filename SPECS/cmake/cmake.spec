@@ -1,13 +1,12 @@
-Summary:	Cmake-3.12.1
+Summary:	Cmake-3.16.1
 Name:		cmake
-Version:	3.12.1
-Release:	4%{?dist}
+Version:	3.16.1
+Release:	1%{?dist}
 License:	BSD and LGPLv2+
 URL:		http://www.cmake.org/
-Source0:	http://www.cmake.org/files/v3.12/%{name}-%{version}.tar.gz
-%define sha1 cmake=5359cd2e36051b0746580298d42518b0aef27979
+Source0:	http://www.cmake.org/files/v3.16/%{name}-%{version}.tar.gz
+%define sha1 cmake=c8bf4a1277f969fa0bc85489d7d822a5eb290000
 Source1:	macros.cmake
-Patch0:         disableUnstableUT.patch
 Group:		Development/Tools
 Vendor:		VMware, Inc.
 Distribution:	Photon
@@ -34,7 +33,6 @@ CMake is an extensible, open-source system that manages the build process in an
 operating system and in a compiler-independent manner.
 %prep
 %setup -q
-%patch0 -p1
 %build
 ncores="$(/usr/bin/getconf _NPROCESSORS_ONLN)"
 ./bootstrap --prefix=%{_prefix} --system-expat --system-zlib --system-libarchive --system-bzip2 --parallel=$ncores
@@ -57,6 +55,8 @@ make  %{?_smp_mflags} test
 %{_libdir}/rpm/macros.d/macros.cmake
 
 %changelog
+*       Mon Dec 16 2019 Sriram Nambakam <snambakam@vmware.com> 3.16.1-1
+-       Upgraded to 3.16.1
 *       Thu Jan 17 2019 Ankit Jain <ankitja@vmware.com> 3.12.1-4
 -       Removed unnecessary libgcc-devel buildrequires
 *       Thu Dec 06 2018 <ashwinh@vmware.com> 3.12.1-3

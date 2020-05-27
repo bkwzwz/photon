@@ -1,16 +1,20 @@
-Summary:        Etcd-3.1.5
+Summary:        Distributed reliable key-value store
 Name:           etcd
-Version:        3.3.9
-Release:        1%{?dist}
+Version:        3.4.3
+Release:        2%{?dist}
 License:        Apache License
 URL:            https://github.com/etcd-io/etcd/
 Group:          System Environment/Security
 Vendor:         VMware, Inc.
 Distribution:   Photon
 Source0:        %{name}-%{version}.tar.gz
-%define sha1 etcd=67d754476cdb1cde4d33fbb9872a6313963c5755
+%define sha1 etcd=3934e2b43004cf0d9a323add6be3398340a607aa
 Source1:        etcd.service
-BuildRequires:  go >= 1.7
+%ifarch aarch64
+Source2:        etcd.sysconfig
+%endif
+BuildRequires:  go >= 1.12
+BuildRequires:  git
 
 %description
 A highly-available key value store for shared configuration and service discovery.
@@ -19,12 +23,16 @@ A highly-available key value store for shared configuration and service discover
 %setup -q
 
 %build
+go mod vendor
 ./build
 
 %install
 install -vdm755 %{buildroot}%{_bindir}
 install -vdm755 %{buildroot}/%{_docdir}/%{name}-%{version}
 install -vdm755 %{buildroot}/lib/systemd/system
+%ifarch aarch64
+install -vdm 0755 %{buildroot}%{_sysconfdir}/sysconfig
+%endif
 install -vdm 0755 %{buildroot}%{_sysconfdir}/etcd
 install -vpm 0755 -T etcd.conf.yml.sample %{buildroot}%{_sysconfdir}/etcd/etcd-default-conf.yml
 
@@ -41,6 +49,9 @@ install -vdm755 %{buildroot}/lib/systemd/system-preset
 echo "disable etcd.service" > %{buildroot}/lib/systemd/system-preset/50-etcd.preset
 
 cp %{SOURCE1} %{buildroot}/lib/systemd/system
+%ifarch aarch64
+cp %{SOURCE2} %{buildroot}/etc/sysconfig/etcd
+%endif
 install -vdm755 %{buildroot}/var/lib/etcd
 
 %post   -p /sbin/ldconfig
@@ -57,8 +68,17 @@ rm -rf %{buildroot}/*
 /lib/systemd/system-preset/50-etcd.preset
 %dir /var/lib/etcd
 %config(noreplace) %{_sysconfdir}/etcd/etcd-default-conf.yml
+%ifarch aarch64
+%config(noreplace) %{_sysconfdir}/sysconfig/etcd
+%endif
 
 %changelog
+*   Wed Apr 08 2020 Shreyas B <shreyasb@vmware.com> 3.4.3-2
+-   Remove vendor dependencies, which is occurs due to Go v1.14.
+*   Mon Mar 16 2020 Ankit Jain <ankitja@vmware.com> 3.4.3-1
+-   Update to 3.4.3
+*   Mon Feb 25 2019 Keerthana K <keerthanak@vmware.com> 3.3.9-2
+-   Add env variable ETCD_UNSUPPORTED_ARCH=arm64 for arm to start etcd service.
 *   Fri Sep 21 2018 Sujay G <gsujay@vmware.com> 3.3.9-1
 -   Bump etcd version to 3.3.9
 *   Mon Sep 18 2017 Alexey Makhalov <amakhalov@vmware.com> 3.1.5-4

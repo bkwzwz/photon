@@ -1,25 +1,29 @@
 Name:          rabbitmq-server
 Summary:       RabbitMQ messaging server
-Version:       3.6.15
-Release:       4%{?dist}
+Version:       3.7.20
+Release:       2%{?dist}
 Group:         Applications
 Vendor:        VMware, Inc.
 Distribution:  Photon
 License:       MPLv1.1
 URL:           https://github.com/rabbitmq/rabbitmq-server
-Source0:       http://www.rabbitmq.com/releases/rabbitmq-server/v%{version}/%{name}-%{version}.tar.xz
-%define sha1 rabbitmq=617cfba3406804b7cdc9999b88c06086e3705904
+source0:       https://github.com/rabbitmq/rabbitmq-server/releases/download/v%{version}/%{name}-%{version}.tar.xz
+%define sha1 rabbitmq=dc2ade335755a9342524651e994597199219b172
 Source1:       rabbitmq.config
 Requires:      erlang
+Requires:      erlang-sd_notify
 Requires:      /bin/sed
 Requires:      socat
 Requires(pre):  /usr/sbin/useradd /usr/sbin/groupadd
 BuildRequires: erlang
 BuildRequires: rsync
 BuildRequires: zip
+BuildRequires: git
 BuildRequires: libxslt
+BuildRequires: xmlto
 BuildRequires: python-xml
 BuildRequires: python2
+BuildRequires: elixir
 BuildArch:     noarch
 
 %description
@@ -29,6 +33,7 @@ rabbitmq messaging server
 %setup -q
 
 %build
+LANG="en_US.UTF-8" LC_ALL="en_US.UTF-8"
 make %{?_smp_mflags}
 
 %install
@@ -81,8 +86,8 @@ fi
 %post
 chown -R rabbitmq:rabbitmq /var/lib/rabbitmq
 chown -R rabbitmq:rabbitmq /etc/rabbitmq
+chmod g+s /etc/rabbitmq
 %systemd_post %{name}.service
-systemctl daemon-reload
 
 %preun
 %systemd_preun %{name}.service
@@ -102,6 +107,12 @@ rm -rf $RPM_BUILD_ROOT
 /var/lib/*
 
 %changelog
+* Mon Apr 27 2020 Tapas Kundu <tkundu@vmware.com> 3.7.20-2
+- Fix rabbitmq server issue when we enable rabbitmq plugin.
+* Tue Oct 29 2019 Keerthana K <keerthanak@vmware.com> 3.7.20-1
+- Update to version 3.7.20
+* Mon Aug 19 2019 Keerthana K <keerthanak@vmware.com> 3.7.3-1
+- Update to version 3.7.3
 * Tue Feb 05 2019 Alexey Makhalov <amakhalov@vmware.com> 3.6.15-4
 - Added BuildRequires python2.
 * Thu Jan 31 2019 Siju Maliakkal <smaliakkal@vmware.com> 3.6.15-3

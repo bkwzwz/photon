@@ -1,6 +1,6 @@
 Summary:        libssh2 is a library implementing the SSH2 protocol.
 Name:           libssh2
-Version:        1.8.0
+Version:        1.9.0
 Release:        1%{?dist}
 License:        BSD
 URL:            https://www.libssh2.org/
@@ -8,7 +8,8 @@ Group:          System Environment/NetworkingLibraries
 Vendor:         VMware, Inc.
 Distribution:   Photon
 Source0:        https://www.libssh2.org/download/libssh2-%{version}.tar.gz
-%define sha1    libssh2=baf2d1fb338eee531ba9b6b121c64235e089e0f5
+%define sha1    libssh2=21e98282b103307a16792e5e2d4c99beaf0b3b9c
+Patch0:         CVE-2019-17498.patch
 BuildRequires:  openssl-devel
 BuildRequires:  zlib-devel
 
@@ -27,14 +28,18 @@ These are the header files of libssh2.
 
 %prep
 %setup -q
+%patch0 -p1
 
 %build
-./configure --prefix=%{_prefix} \
-    --bindir=%{_bindir} \
-    --libdir=%{_libdir} \
-    --mandir=%{_mandir} \
+if [ %{_host} != %{_build} ]; then
+  PREFIXES="--with-libssl-prefix=/target-%{_arch}/usr --with-libz-prefix=/target-%{_arch}/usr"
+else
+  PREFIXES=
+fi
+%configure \
     --disable-static \
-    --enable-shared
+    --enable-shared \
+    $PREFIXES
 make
 
 %install
@@ -53,6 +58,12 @@ find %{buildroot} -name '*.la' -exec rm -f {} ';'
 %{_mandir}/man3/*
 
 %changelog
+*   Mon Mar 16 2020 Sujay G <gsujay@vmware.com> 1.9.0-1
+-   Bump version to 1.9.0 and add patch to fix CVE-2019-17498
+*   Wed Jul 03 2019 Alexey Makhalov <amakhalov@vmware.com> 1.8.0-3
+-   Cross compilation support
+*   Thu Mar 28 2019 Tapas Kundu <tkundu@vmware.com> 1.8.0-2
+-   Fix for CVE-2019-3855
 *   Wed Nov 30 2016 Xiaolin Li <xiaolinl@vmware.com> 1.8.0-1
 -   Add libssh2 1.8.0 package.
 

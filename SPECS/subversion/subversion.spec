@@ -1,7 +1,7 @@
 Summary:        The Apache Subversion control system
 Name:           subversion
 Version:        1.10.2
-Release:        3%{?dist}
+Release:        5%{?dist}
 License:        Apache License 2.0
 URL:            http://subversion.apache.org/
 Group:          Utilities/System
@@ -9,6 +9,9 @@ Vendor:         VMware, Inc.
 Distribution:   Photon
 Source0:        http://archive.apache.org/dist/%{name}/%{name}-%{version}.tar.bz2
 %define sha1    %{name}=bc52ef2e671f821998ac9a5f7ebecbbcaaef83b8
+Patch0:         subversion-CVE-2018-11782.patch
+Patch1:         subversion-CVE-2019-0203.patch
+Patch2:         subversion-CVE-2018-11803.patch
 Requires:       apr
 Requires:       apr-util
 Requires:       serf
@@ -43,9 +46,12 @@ Provides Perl (SWIG) support for Subversion version control system.
 
 %prep
 %setup -q
+%patch0 -p1
+%patch1 -p1
+%patch2 -p1
 
 %build
-./configure --prefix=%{_prefix}         \
+sh configure --prefix=%{_prefix}         \
         --disable-static                \
         --with-apache-libexecdir        \
         --with-serf=%{_prefix}		\
@@ -90,9 +96,14 @@ sudo -u test make check && userdel test -r -f
 %{_libdir}/libsvn_swig_perl*so*
 %{_libdir}/perl5/*
 %{_mandir}/man3/SVN*
+%exclude %{_libdir}/perl5/*/*/perllocal.pod
 
 
 %changelog
+*   Fri Oct 11 2019 Ankit Jain <ankitja@vmware.com> 1.10.2-5
+-   Added patches for CVE-2019-0203 and CVE-2018-11782
+*   Tue Mar 05 2019 Siju Maliakkal <smaliakkal@vmware.com> 1.10.2-4
+-   Excluding conflicting perllocal.pod
 *   Tue Oct 02 2018 Siju Maliakkal <smaliakkal@vmware.com> 1.10.2-3
 -   Added Perl bindings
 *   Fri Sep 21 2018 Ankit Jain <ankitja@vmware.com> 1.10.2-2
@@ -122,7 +133,7 @@ sudo -u test make check && userdel test -r -f
 *   Tue Nov 10 2015 Xiaolin Li <xiaolinl@vmware.com> 1.8.13-5
 -   Handled locale files with macro find_lang
 *   Tue Sep 22 2015 Harish Udaiya Kumar <hudaiyakumar@vmware.com> 1.8.13-4
--   Updated build-requires after creating devel package for apr. 
+-   Updated build-requires after creating devel package for apr.
 *   Mon Sep 21 2015 Xiaolin Li <xiaolinl@vmware.com> 1.8.13-3
 -   Move .a, and .so files to devel pkg.
 *   Tue Sep 08 2015 Vinay Kulkarni <kulkarniv@vmware.com> 1.8.13-2

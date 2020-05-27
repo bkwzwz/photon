@@ -1,11 +1,11 @@
 Summary:        Rocket-fast system for log processing
 Name:           rsyslog
-Version:        8.37.0
+Version:        8.2001.0
 Release:        1%{?dist}
 License:        GPLv3+ and ASL 2.0
 URL:            http://www.rsyslog.com/
 Source0:        http://www.rsyslog.com/files/download/rsyslog/%{name}-%{version}.tar.gz
-%define sha1    rsyslog=7541e3cf6facbab19792ff8d9d7f4cd3fbb1c634
+%define sha1    rsyslog=f9943b3df0b82294e7293fa30d1d03eeff8faf84
 Source1:        rsyslog.service
 Source2:        50-rsyslog-journald.conf
 Source3:        rsyslog.conf
@@ -33,17 +33,20 @@ RSYSLOG is the rocket-fast system for log processing.
 It offers high-performance, great security features and a modular design. While it started as a regular syslogd, rsyslog has evolved into a kind of swiss army knife of logging, being able to accept inputs from a wide variety of sources, transform them, and output to the results to diverse destinations.
 %prep
 %setup -q
+
+
 autoreconf -fvi
 %build
 sed -i 's/libsystemd-journal/libsystemd/' configure
-./configure \
-    --prefix=%{_prefix} \
+%configure \
     --enable-relp \
     --enable-gnutls\
     --enable-imfile \
     --enable-imjournal \
     --enable-impstats \
-    --enable-imptcp
+    --enable-imptcp \
+    --enable-imtcp \
+    --enable-openssl
 
 make %{?_smp_mflags}
 
@@ -79,8 +82,23 @@ make %{?_smp_mflags} check
 %{_mandir}/man8/*
 %{_libdir}/systemd/system/rsyslog.service
 %{_sysconfdir}/systemd/journald.conf.d/*
-%{_sysconfdir}/rsyslog.conf
+%config(noreplace) %{_sysconfdir}/rsyslog.conf
 %changelog
+*   Mon Jan 27 2020 Tapas Kundu <tkundu@vmware.com> 8.2001.0-1
+-   Update to 8.2001.0
+*   Mon Dec 23 2019 Tapas Kundu <tkundu@vmware.com> 8.1910.0-4
+-   Fix typo in conf file.
+*   Thu Nov 21 2019 Tapas Kundu <tkundu@vmware.com> 8.1910.0-3
+-   Added config noreplace for rsyslog.conf
+*   Mon Nov 04 2019 Tapas Kundu <tkundu@vmware.com> 8.1910.0-2
+-   Built with imtcp and openssl
+-   Added patch to fix openssl version in rsyslog source
+*   Wed Oct 16 2019 Tapas Kundu <tkundu@vmware.com> 8.1910.0-1
+-   Update to 8.1910.0 release
+-   Fix CVE-2019-17041 and CVE-2019-17042
+*   Fri Oct 04 2019 Keerthana K <keerthanak@vmware.com> 8.1907.0-1
+-   Update to 8.1907.0
+-   Fix CVE-2019-17040
 *   Mon Sep 10 2018 Keerthana K <keerthanak@vmware.com> 8.37.0-1
 -   Updated to version 8.37.0
 *   Thu Apr 12 2018 Xiaolin Li <xiaolinl@vmware.com> 8.26.0-5

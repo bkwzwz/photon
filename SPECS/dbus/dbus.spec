@@ -1,12 +1,12 @@
 Summary:        DBus for systemd
 Name:           dbus
-Version:        1.13.6
+Version:        1.13.14
 Release:        1%{?dist}
 License:        GPLv2+ or AFL
 URL:            http://www.freedesktop.org/wiki/Software/dbus
 Group:          Applications/File
-Source0:        http://dbus.freedesktop.org/releases/dbus/%{name}-%{version}.tar.gz
-%define sha1    dbus=368c14e3dde9524dd9d0775227ebf3932802c023
+Source0:        http://dbus.freedesktop.org/releases/dbus/%{name}-%{version}.tar.xz
+%define sha1    dbus=7ac47ba3eb982a33f1fcf5810dde9d7172f2b06d
 Vendor:         VMware, Inc.
 Distribution:   Photon
 BuildRequires:  expat-devel
@@ -21,27 +21,23 @@ The dbus package contains dbus.
 %package    devel
 Summary:    Header and development files
 Requires:   %{name} = %{version}
-Requires:  expat-devel
+Requires:   expat-devel
 %description    devel
-It contains the libraries and header files to create applications 
+It contains the libraries and header files to create applications
 
 %prep
-%setup -q
+%autosetup
+
 %build
-./configure --prefix=%{_prefix}                 \
-            --sysconfdir=%{_sysconfdir}         \
-            --localstatedir=%{_var}             \
-            --docdir=%{_datadir}/doc/dbus-1.11.12  \
-            --enable-libaudit=no --enable-selinux=no \
-            --with-console-auth-dir=/run/console
+%configure \
+    --docdir=%{_defaultdocdir}/%{name}-%{version} \
+    --enable-libaudit=no --enable-selinux=no \
+    --with-console-auth-dir=/run/console
 
 make %{?_smp_mflags}
 %install
 make DESTDIR=%{buildroot} install
 install -vdm755 %{buildroot}%{_lib}
-#ln -sfv ../../lib/$(readlink %{buildroot}%{_libdir}/libdbus-1.so) %{buildroot}%{_libdir}/libdbus-1.so
-#rm -f %{buildroot}%{_sharedstatedir}/dbus/machine-id
-#ln -sv %{buildroot}%{_sysconfdir}/machine-id %{buildroot}%{_sharedstatedir}/dbus
 
 %check
 make %{?_smp_mflags} check
@@ -52,8 +48,8 @@ make %{?_smp_mflags} check
 %{_bindir}/*
 %{_libdir}/libdbus-1.so.*
 %{_libdir}/tmpfiles.d/dbus.conf
+%{_libdir}/systemd/system/*
 %exclude %{_libdir}/sysusers.d
-/lib/*
 %{_libexecdir}/*
 %{_docdir}/*
 %{_datadir}/dbus-1
@@ -73,6 +69,10 @@ make %{?_smp_mflags} check
 %{_libdir}/*.so
 
 %changelog
+*   Wed May 06 2020 Susant Sahani <ssahani@vmware.com> 1.13.14-1
+-   Update to 1.13.14
+*   Thu Nov 15 2018 Alexey Makhalov <amakhalov@vmware.com> 1.13.6-2
+-   Cross compilation support
 *   Mon Sep 10 2018 Ajay Kaher <akaher@vmware.com> 1.13.6-1
 -   Update to 1.13.6
 *   Fri Apr 21 2017 Bo Gan <ganb@vmware.com> 1.11.12-1

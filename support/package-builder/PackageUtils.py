@@ -1,5 +1,4 @@
 import os
-import platform
 import shutil
 import re
 import random
@@ -39,8 +38,10 @@ class PackageUtils(object):
         self.noDepsPackagesToInstallInAOneShot = ""
         self.logfnvalue = None
 
-    def prepRPMforInstall(self, package, version, noDeps=False, destLogPath=None):
-        rpmfile = self.findRPMFile(package, version)
+    def prepRPMforInstall(self, package, version, noDeps=False, destLogPath=None, arch=None):
+        if not arch:
+            arch=constants.currentArch
+        rpmfile = self.findRPMFile(package, version, arch)
         if rpmfile is None:
             self.logger.error("No rpm file found for package: " + package)
             raise Exception("Missing rpm file")
@@ -59,7 +60,7 @@ class PackageUtils(object):
         if "noarch" in rpmfile:
             rpmDestFile += "noarch/"
         else:
-            rpmDestFile += platform.machine()+"/"
+            rpmDestFile += arch+"/"
         rpmDestFile += rpmName
 
         if noDeps:
@@ -69,8 +70,11 @@ class PackageUtils(object):
             self.rpmFilesToInstallInAOneShot += " " + rpmDestFile
             self.packagesToInstallInAOneShot += " " + package
 
-    def installRPMSInOneShot(self, sandbox):
+    def installRPMSInOneShot(self, sandbox, arch):
         rpmInstallcmd = self.rpmBinary + " " + self.installRPMPackageOptions
+        if constants.crossCompiling and arch == constants.targetArch:
+            rpmInstallcmd += " --ignorearch --noscripts --root /target-" + constants.targetArch
+
         # TODO: Container sandbox might need  + self.forceRpmPackageOptions
         if self.noDepsRPMFilesToInstallInAOneShot != "":
             self.logger.debug("Installing nodeps rpms: " +
@@ -142,12 +146,14 @@ class PackageUtils(object):
                 CommandUtils().runCommandInShell(cmd, logfn=self.logger.debug)
         self.logger.debug("RPM build is successful")
 
-    def findRPMFile(self, package,version="*"):
-        cmdUtils = CommandUtils()
+    def findRPMFile(self, package,version="*",arch=None, throw=False):
+        if not arch:
+            arch=constants.currentArch
+
         if version == "*":
-                version = SPECS.getData().getHighestVersion(package)
-        release = SPECS.getData().getRelease(package, version)
-        buildarch=SPECS.getData().getBuildArch(package, version)
+                version = SPECS.getData(arch).getHighestVersion(package)
+        release = SPECS.getData(arch).getRelease(package, version)
+        buildarch=SPECS.getData(arch).getBuildArch(package, version)
         filename= package + "-" + version + "-" + release + "." + buildarch+".rpm"
 
         fullpath = constants.rpmPath + "/" + buildarch + "/" + filename
@@ -159,18 +165,48 @@ class PackageUtils(object):
         if os.path.isfile(fullpath):
             return fullpath
 
+        if throw:
+            raise Exception("RPM %s not found" % (filename))
         return None
 
-    def findInstalledRPMPackages(self, sandbox):
+    def findSourceRPMFile(self, package,version="*"):
+        if version == "*":
+                version = SPECS.getData().getHighestVersion(package)
+        release = SPECS.getData().getRelease(package, version)
+        filename= package + "-" + version + "-" + release + "src.rpm"
+
+        fullpath = constants.sourceRpmPath + "/" + filename
+        if os.path.isfile(fullpath):
+            return fullpath
+        return None
+
+    def findDebugRPMFile(self, package,version="*",arch=None):
+        if not arch:
+            arch=constants.currentArch
+
+        if version == "*":
+                version = SPECS.getData(arch).getHighestVersion(package)
+        release = SPECS.getData(arch).getRelease(package, version)
+        filename= package + "-debuginfo-" + version + "-" + release + "." + arch +".rpm"
+
+        fullpath = constants.rpmPath + "/" + arch + "/" + filename
+        if os.path.isfile(fullpath):
+            return fullpath
+        return None
+
+    def findInstalledRPMPackages(self, sandbox, arch):
         rpms = None
         def setOutValue(data):
             nonlocal rpms
             rpms = data
         cmd = self.rpmBinary + " " + self.queryRpmPackageOptions
+        if constants.crossCompiling and arch == constants.targetArch:
+            cmd += " --root /target-" + constants.targetArch
         sandbox.run(cmd, logfn=setOutValue)
         return rpms.split()
 
     def adjustGCCSpecs(self, sandbox, package, version):
+        # TODO: need to harden cross compiller also
         opt = " " + SPECS.getData().getSecurityHardeningOption(package, version)
         sandbox.put(self.adjustGCCSpecScript, "/tmp")
         cmd = "/tmp/" + self.adjustGCCSpecScript + opt
@@ -240,7 +276,8 @@ class PackageUtils(object):
 
         if constants.rpmCheck and package in constants.testForceRPMS:
             self.logger.debug("#" * (68 + 2 * len(package)))
-            if not SPECS.getData().isCheckAvailable(package, version):
+            if (not SPECS.getData().isCheckAvailable(package, version)) or \
+                    (package in constants.listMakeCheckPkgToSkip):
                 self.logger.info("####### " + package +
                                  " MakeCheck is not available. Skipping MakeCheck TEST for " +
                                  package + " #######")
@@ -256,6 +293,12 @@ class PackageUtils(object):
 
         for macro in macros:
             rpmBuildcmd += ' --define \"%s\"' % macro
+
+        if constants.crossCompiling:
+            rpmBuildcmd += ' --define \"_build %s-unknown-linux-gnu\"' % constants.buildArch
+            rpmBuildcmd += ' --define \"_host %s-unknown-linux-gnu\"' % constants.targetArch
+            rpmBuildcmd += ' --target='+constants.targetArch+'-unknown-linux-gnu'
+
         rpmBuildcmd += " " + specFile
 
         self.logger.debug("Building rpm....")
@@ -264,7 +307,8 @@ class PackageUtils(object):
         returnVal = sandbox.run(rpmBuildcmd, logfile = logFile)
 
         if constants.rpmCheck and package in constants.testForceRPMS:
-            if not SPECS.getData().isCheckAvailable(package, version):
+            if (not SPECS.getData().isCheckAvailable(package, version)) or \
+                    (package in constants.listMakeCheckPkgToSkip):
                 constants.testLogger.info(package + " : N/A")
             elif returnVal == 0:
                 constants.testLogger.info(package + " : PASS")

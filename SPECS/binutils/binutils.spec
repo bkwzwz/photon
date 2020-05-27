@@ -1,23 +1,33 @@
 Summary:        Contains a linker, an assembler, and other tools
 Name:           binutils
-Version:        2.31.1
-Release:        3%{?dist}
+Version:        2.34
+Release:        1%{?dist}
 License:        GPLv2+
 URL:            http://www.gnu.org/software/binutils
 Group:          System Environment/Base
 Vendor:         VMware, Inc.
 Distribution:   Photon
+Requires:       %{name}-libs = %{version}-%{release}
+%if %{with_check}
+BuildRequires:  dejagnu
+BuildRequires:  bc
+%endif
 Source0:        http://ftp.gnu.org/gnu/binutils/%{name}-%{version}.tar.xz
-%define sha1 binutils=3b031410897fe224412f3a6a1b052402d2fbcc6a
-# Fix CVE-2018-17368 and CVE-2018-17359
-Patch0:         Bug-23686-two-segment-faults-in-nm.patch
-# Fix CVE-2018-17360
-Patch1:         PR23685-buffer-overflow.patch
-# Fix CVE-2018-1000876
-Patch2:         PR23994-libffd-integer-overflow.patch
+%define sha1 binutils=78f7ba4c0775ae75f5b906dc9af03d70b39b0785
+Patch8:         binutils-sync-libiberty-add-no-recurse-limit-make-check-fix.patch
+Patch9:         binutils-CVE-2019-1010204.patch
+
 %description
 The Binutils package contains a linker, an assembler,
 and other tools for handling object files.
+
+%package    libs
+Summary:    Shared library files for binutils
+Obsoletes:  binutils <= 2.32-1
+
+%description    libs
+It contains the binutils shared libraries that applications can link
+to at runtime.
 
 %package    devel
 Summary:    Header and development files for binutils
@@ -29,16 +39,17 @@ for handling compiled objects.
 
 %prep
 %setup -q
-%patch0 -p1
-%patch1 -p1
-%patch2 -p1
+%patch8 -p1
+%patch9 -p1
 
 %build
+sed -i '/@\tincremental_copy/d' gold/testsuite/Makefile.in
 %configure \
             --enable-gold       \
             --enable-ld=default \
             --enable-plugins    \
             --enable-shared     \
+            --enable-targets=x86_64-unknown-linux-gnu,aarch64-unknown-linux-gnu \
             --disable-werror    \
             --with-system-zlib  \
 	    --enable-install-libiberty \
@@ -52,12 +63,11 @@ rm -rf %{buildroot}/%{_infodir}
 %find_lang %{name} --all-name
 
 %check
-sed -i 's/testsuite/ /g' gold/Makefile
-make %{?_smp_mflags} check
+# Disable gcc hardening as it will affect some tests.
+rm `dirname $(gcc --print-libgcc-file-name)`/../specs
+make %{?_smp_mflags} -k check > tests.sum 2>&1
 
 
-%post   -p /sbin/ldconfig
-%postun -p /sbin/ldconfig
 %files -f %{name}.lang
 %defattr(-,root,root)
 %{_bindir}/dwp
@@ -97,10 +107,20 @@ make %{?_smp_mflags} check
 %{_mandir}/man1/windres.1.gz
 %{_mandir}/man1/size.1.gz
 %{_mandir}/man1/objdump.1.gz
+
+%post   libs -p /sbin/ldconfig
+%postun libs -p /sbin/ldconfig
+
+%files libs
 %{_libdir}/libbfd-%{version}.so
+%{_libdir}/libctf.so*
+%{_libdir}/libctf-nobfd.so*
 %{_libdir}/libopcodes-%{version}.so
 
 %files devel
+%{_includedir}/bfd_stdint.h
+%{_includedir}/ctf.h
+%{_includedir}/ctf-api.h
 %{_includedir}/plugin-api.h
 %{_includedir}/symcat.h
 %{_includedir}/bfd.h
@@ -110,12 +130,33 @@ make %{?_smp_mflags} check
 %{_includedir}/libiberty/*
 %{_includedir}/diagnostics.h
 %{_libdir}/libbfd.a
-%{_libdir}/libopcodes.a
 %{_libdir}/libbfd.so
+%{_libdir}/libctf.a
+%{_libdir}/libctf-nobfd.a
+%{_libdir}/libopcodes.a
 %{_libdir}/libopcodes.so
 %{_lib64dir}/libiberty.a
 
 %changelog
+*   Fri Mar 13 2020 Alexey Makhalov <amakhalov@vmware.com> 2.34-1
+-   Version update.
+*   Tue Nov 26 2019 Alexey Makhalov <amakhalov@vmware.com> 2.32-4
+-   Support for aarch64 target to be able to strip aarch64 libraries
+    during cross-aarch64-gcc build
+*   Wed Nov 13 2019 Satya Naga Vasamsetty <svasamsetty@vmware.com> 2.32-3
+-   Fix CVE-2019-17450 and CVE-2019-17451
+*   Sun Sep 29 2019 Srivatsa S. Bhat (VMware) <srivatsa@csail.mit.edu> 2.32-2
+-   Separate out libbfd and libopcodes shared libraries into
+-   binutils-libs sub-package.
+*   Mon Aug 26 2019 Satya Naga Vasamsetty <svasamsetty@vmware.com> 2.32-1
+-   Update version to 2.32, fix CVE-2019-1010204, fix a make check failure
+*   Mon Aug 12 2019 Satya Naga Vasamsetty <svasamsetty@vmware.com> 2.31.1-6
+-   Fix CVE-2019-14444, CVE-2019-12972, CVE-2019-14250
+*   Thu Jun 20 2019 Vikash Bansal <bvikas@vmware.com> 2.31.1-5
+-   Fix CVE-2018-20623, CVE-2018-20671, CVE-2018-20651,
+-   CVE-2018-17794-18700-18701-18484, CVE-2019-9071, CVE-2019-9073 and CVE-2019-9074
+*   Thu Mar 14 2019 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 2.31.1-4
+-   Fix CVE-2019-9075 and CVE-2019-9077
 *   Tue Jan 22 2019 Anish Swaminathan <anishs@vmware.com> 2.31.1-3
 -   fix CVE-2018-1000876
 *   Tue Jan 08 2019 Alexey Makhalov <amakhalov@vmware.com> 2.31.1-2

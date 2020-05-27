@@ -5,7 +5,7 @@
 
 Summary:	Linux Firmware
 Name:		linux-firmware
-Version:	20190109
+Version:	20200115
 Release:	1%{?dist}
 License:	GPL+ and GPLv2+ and MIT and Redistributable, no modification permitted
 URL:		http://www.kernel.org/
@@ -13,7 +13,7 @@ Group:		System Environment/Kernel
 Vendor:		VMware, Inc.
 Distribution:	Photon
 Source0:        %{name}-%{version}.tar.gz
-%define sha1 linux=602230b5ac61c9e8bf3b448e8399e0b9fa591cdb
+%define sha1 linux=24f338030e4c250f62ff14a45c4a06f12435a733
 BuildArch:	noarch
 
 %description
@@ -26,20 +26,23 @@ This package includes firmware files required for some devices to operate.
 
 %install
 mkdir -p %{buildroot}%{_firmwarepath}
-cp -r brcm %{buildroot}%{_firmwarepath}
-cp -r rsi %{buildroot}%{_firmwarepath}
-cp rsi_91x.fw %{buildroot}%{_firmwarepath}
-cp ls1012a_ppe/ppfe_class_ls1012a.elf %{buildroot}%{_firmwarepath}
-cp ls1012a_ppe/ppfe_tmu_ls1012a.elf %{buildroot}%{_firmwarepath}
-cp ls1012a_ppe/NXP-Binary-EULA.txt %{buildroot}%{_firmwarepath}
-cp -r i915 %{buildroot}%{_firmwarepath}
-cp -r intel %{buildroot}%{_firmwarepath}
-cp iwlwifi-8000C-*.ucode %{buildroot}%{_firmwarepath}
+# Copy entire tree as is
+cp -r * %{buildroot}%{_firmwarepath}
 
 %files
 %defattr(-,root,root)
 %{_firmwarepath}/*
+
 %changelog
+*   Wed Jan 15 2020 Him Kalyan Bordoloi <bordoloih@vmware.com> 20200115-1
+-   Added ilo4 nic firmware
+*   Thu Oct 24 2019 Ajay Kaher <akaher@vmware.com> 20191030-1
+-   Added Dell 5K Gateway firmware.
+*   Fri Aug 30 2019 Alexey Makhalov <amakhalov@vmware.com> 20190830-1
+-   Added ath10k firmware for ls1046a.
+*   Tue Feb 05 2019 Alexey Makhalov <amakhalov@vmware.com> 20190205-1
+-   Added ath10k firmware (for ls1012a).
+-   Use 1:1 folder layout for ppfe firmware.
 *   Wed Jan 09 2019 Alexey Makhalov <amakhalov@vmware.com> 20190109-1
 -   Added Compulab Fitlet2 firmware.
 *   Thu Nov 29 2018 Srinidhi Rao <srinidhir@vmware.com> 20181129-1

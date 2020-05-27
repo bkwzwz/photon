@@ -52,6 +52,8 @@ class DependencyGraphNode(object):
         # sanity checks.
         self.numVisits = 0
 
+        # Internal flag to check if the package is built
+        self.built = 0
 
 class Scheduler(object):
 
@@ -68,6 +70,7 @@ class Scheduler(object):
     event = None
     stopScheduling = False
     mapPackagesToGraphNodes = {}
+    coreToolChainBuild = False
 
     @staticmethod
     def setEvent(event):
@@ -82,13 +85,33 @@ class Scheduler(object):
         Scheduler.sortedList = sortedList
 
         Scheduler.listOfAlreadyBuiltPackages = listOfAlreadyBuiltPackages
-        for x in Scheduler.sortedList:
-            if x not in Scheduler.listOfAlreadyBuiltPackages or x in constants.testForceRPMS:
-                Scheduler.listOfPackagesToBuild.append(x)
+
+        for pkg in Scheduler.sortedList:
+            pkgName, pkgVersion = StringUtils.splitPackageNameAndVersion(pkg)
+            if (pkg not in Scheduler.listOfAlreadyBuiltPackages
+               or pkgName in constants.testForceRPMS):
+                Scheduler.listOfPackagesToBuild.append(pkg)
+
         Scheduler.listOfPackagesCurrentlyBuilding = set()
         Scheduler.listOfPackagesNextToBuild = PriorityQueue()
         Scheduler.listOfFailedPackages = []
-        Scheduler._setPriorities()
+
+        # When performing (only) make-check, package dependencies are
+        # irrelevant; i.e., all the packages can be "make-checked" in
+        # parallel. So skip building the dependency graph. This is not
+        # merely an optimization! A given package can define
+        # additional packages to be installed in its build environment
+        # when performing a make-check, under %if %{with_check}.
+        # However, these are not really build-time-dependencies in the
+        # usual sense; i.e., there is no ordering requirement when
+        # building these packages; they only make sense when running a
+        # `make check`. Hence, trying to build a dependency graph out
+        # of them will result in anomalies such as cycles in the
+        # graph. So skip building the graph altogether and schedule
+        # all the `make check`s in parallel.
+        skipGraphBuild = constants.rpmCheck
+        Scheduler._setPriorities(skipGraphBuild)
+
         if constants.publishBuildDependencies:
             # This must be called only after calling _setPriorities(),
             # which builds the dependency graph.
@@ -101,6 +124,7 @@ class Scheduler(object):
             if package in Scheduler.listOfPackagesCurrentlyBuilding:
                 Scheduler.listOfPackagesCurrentlyBuilding.remove(package)
                 Scheduler.listOfAlreadyBuiltPackages.add(package)
+                Scheduler._markPkgNodeAsBuilt(package)
 
     @staticmethod
     def notifyPackageBuildFailed(package):
@@ -194,6 +218,30 @@ class Scheduler(object):
     def _getRequiredPackages(pkg):
         return Scheduler.__getRequiredTypePackages(pkg, "install")
 
+    def _createNodes():
+        # Create a graph node to represent every package
+        for package in Scheduler.sortedList:
+            packageName, packageVersion = StringUtils.splitPackageNameAndVersion(package)
+            node = DependencyGraphNode(packageName, packageVersion,
+                                       Scheduler._getWeight(package))
+            Scheduler.mapPackagesToGraphNodes[package] = node
+
+            if package in Scheduler.listOfAlreadyBuiltPackages:
+                node.built = 1
+
+    def _createCoreToolChainGraphNodes():
+        # GRAPH-BUILD STEP 1: Initialize graph nodes for each core tool chain package.
+        Scheduler._createNodes()
+
+        # GRAPH-BUILD STEP 2: Mark package dependencies in the graph.
+        # The package dependency is linear like A - B - C - D in accordance to packages in sortedlist
+        # Unless package A is build none other packages B,C,D are build
+        for index,package in enumerate(Scheduler.sortedList):
+            pkgNode = Scheduler.mapPackagesToGraphNodes[package]
+            for childPkg in Scheduler.sortedList[:index]:
+                childPkgNode = Scheduler.mapPackagesToGraphNodes[childPkg]
+                pkgNode.childPkgNodes.add(childPkgNode)
+                childPkgNode.parentPkgNodes.add(pkgNode)
 
     def _createGraphNodes():
 
@@ -201,11 +249,7 @@ class Scheduler(object):
         #
         # Create a graph with a node to represent every package and all
         # its dependent packages in the given list.
-        for package in Scheduler.sortedList:
-            packageName, packageVersion = StringUtils.splitPackageNameAndVersion(package)
-            node = DependencyGraphNode(packageName, packageVersion,
-                                       Scheduler._getWeight(package))
-            Scheduler.mapPackagesToGraphNodes[package] = node
+        Scheduler._createNodes()
 
         for package in Scheduler.sortedList:
             pkgNode = Scheduler.mapPackagesToGraphNodes[package]
@@ -233,6 +277,7 @@ class Scheduler(object):
         #
         for package in Scheduler.sortedList:
             pkgNode = Scheduler.mapPackagesToGraphNodes[package]
+
             for childPkgNode in pkgNode.buildRequiresPkgNodes:
                 pkgNode.childPkgNodes.add(childPkgNode)
                 childPkgNode.parentPkgNodes.add(pkgNode)
@@ -504,8 +549,11 @@ class Scheduler(object):
 
 
     def _buildGraph():
-        Scheduler._createGraphNodes()
-        Scheduler._optimizeGraph()
+        if Scheduler.coreToolChainBuild:
+             Scheduler._createCoreToolChainGraphNodes()
+        else:
+            Scheduler._createGraphNodes()
+            Scheduler._optimizeGraph()
         Scheduler._calculateCriticalChainWeights()
 
 
@@ -542,16 +590,45 @@ class Scheduler(object):
 
 
     @staticmethod
-    def _setPriorities():
-        Scheduler._parseWeights()
-        Scheduler._buildGraph()
+    def _setPriorities(skipGraphBuild):
+        if skipGraphBuild:
+            for package in Scheduler.sortedList:
+                Scheduler.priorityMap[package] = 0
+        else:
+            Scheduler._parseWeights()
+            Scheduler._buildGraph()
 
-        for package in Scheduler.sortedList:
-            pkgNode = Scheduler.mapPackagesToGraphNodes[package]
-            Scheduler.priorityMap[package] = pkgNode.criticalChainWeight
+            for package in Scheduler.sortedList:
+                pkgNode = Scheduler.mapPackagesToGraphNodes[package]
+                Scheduler.priorityMap[package] = pkgNode.criticalChainWeight
 
         Scheduler.logger.debug("set Priorities: Priority of all packages")
         Scheduler.logger.debug(Scheduler.priorityMap)
+
+
+    @staticmethod
+    def _checkNextPackageIsReadyToBuild(package):
+        numOfChildren = 0
+        numOfChildrenBuilt = 0
+        pkgNode = Scheduler.mapPackagesToGraphNodes[package]
+        numOfChildren = len(pkgNode.childPkgNodes)
+        if pkgNode.built == 1:
+            Scheduler.logger.warning("This pkg %s-%s is already built," \
+                                     "but still present in listOfPackagesToBuild" \
+                                     % (pkgNode.packageName, pkgNode.packageVersion))
+            return False
+        if numOfChildren != 0:
+            for childPkgNode in pkgNode.childPkgNodes:
+                if childPkgNode.built == 1:
+                    numOfChildrenBuilt = numOfChildrenBuilt + 1
+
+        return numOfChildren == numOfChildrenBuilt
+
+    @staticmethod
+    def _markPkgNodeAsBuilt(package):
+        pkgNode = Scheduler.mapPackagesToGraphNodes[package]
+        Scheduler.logger.debug("Marking pkgNode as built = %s" % pkgNode.packageName)
+        pkgNode.built = 1
 
 
     @staticmethod
@@ -559,14 +636,7 @@ class Scheduler(object):
         for pkg in Scheduler.listOfPackagesToBuild:
             if pkg in Scheduler.listOfPackagesCurrentlyBuilding:
                 continue
-            listRequiredPackages = list(set(Scheduler._getBuildRequiredPackages(pkg) + \
-                                   Scheduler._getRequiredPackages(pkg)))
-
-            canBuild = True
-            for reqPkg in listRequiredPackages:
-                if reqPkg not in Scheduler.listOfAlreadyBuiltPackages:
-                    canBuild = False
-                    break
-            if canBuild:
-                Scheduler.listOfPackagesNextToBuild.put((-Scheduler._getPriority(pkg), pkg))
-                Scheduler.logger.debug("Adding " + pkg + " to the schedule list")
+            if pkg not in Scheduler.listOfAlreadyBuiltPackages:
+                if Scheduler._checkNextPackageIsReadyToBuild(pkg):
+                    Scheduler.listOfPackagesNextToBuild.put((-Scheduler._getPriority(pkg), pkg))
+                    Scheduler.logger.debug("Adding " + pkg + " to the schedule list")

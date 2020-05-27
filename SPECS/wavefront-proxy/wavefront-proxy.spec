@@ -1,14 +1,15 @@
 Summary:        lightweight java application to send metrics to.
 Name:           wavefront-proxy
-Version:        4.32
-Release:        1%{?dist}
+Version:        4.39
+Release:        2%{?dist}
 License:        Apache 2.0
 URL:            https://github.com/wavefrontHQ/java
 Source0:        https://github.com/wavefrontHQ/java/archive/wavefront-%{version}.tar.gz
-%define sha1    wavefront=216c16125c6308debcffc1d6bd3969b9ea5013eb
+%define sha1    wavefront=de9bd09c3311176cac2183ec031fd39b52a44c56
 Group:          Development/Tools
 Vendor:         VMware, Inc.
 Distribution:   Photon
+Patch0:         openhft-chronicle-map-ver-upgrade.patch
 BuildRequires:  apache-maven
 BuildRequires:  openjre8
 BuildRequires:  openjdk8
@@ -26,6 +27,7 @@ It handles authentication and the transmission of your metrics to your Wavefront
 
 %prep
 %setup -n java-wavefront-%{version}
+%patch0 -p1
 
 cat << EOF >>wavefront-proxy.service
 [Unit]
@@ -108,6 +110,12 @@ rm -rf %{buildroot}/*
 %{_unitdir}/wavefront-proxy.service
 
 %changelog
+* Tue Jan 21 2020 Ankit Jain <ankitja@vmware.com> 4.39-2
+- Upgraded net.openhft chronicle-map version
+* Mon Jul 29 2019 Shreyas B. <shreyasb@vmware.com> 4.39-1
+- Updated to 4.39
+* Wed Jul 10 2019 Alexey Makhalov <amakhalov@vmware.com> 4.32-2
+- Skip tests during make install.
 * Thu Dec 06 2018 Ankit Jain <ankitja@vmware.com> 4.32-1
 - updated to 4.32
 * Tue Nov 20 2018 Ajay Kaher <akaher@vmware.com> 4.28-4

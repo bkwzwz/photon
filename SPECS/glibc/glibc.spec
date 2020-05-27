@@ -3,23 +3,23 @@
 
 Summary:        Main C library
 Name:           glibc
-Version:        2.28
-Release:        2%{?dist}
+Version:        2.31
+Release:        1%{?dist}
 License:        LGPLv2+
 URL:            http://www.gnu.org/software/libc
 Group:          Applications/System
 Vendor:         VMware, Inc.
 Distribution:   Photon
 Source0:        http://ftp.gnu.org/gnu/glibc/%{name}-%{version}.tar.xz
-%define sha1    glibc=ccb5dc9e51a9884df8488f86982439d47b283b2a
+%define sha1    glibc=55619672e5e13996e264d408949eb4aaa26e7ec8
 Source1:        locale-gen.sh
 Source2:        locale-gen.conf
-Patch0:         http://www.linuxfromscratch.org/patches/downloads/glibc/glibc-2.25-fhs-1.patch
+Patch0:         http://www.linuxfromscratch.org/patches/downloads/glibc/glibc-2.31-fhs-1.patch
 Patch1:         glibc-2.24-bindrsvport-blacklist.patch
 Patch2:         0002-malloc-arena-fix.patch
-Patch3:         glibc-2.28-CVE-2018-19591.patch
 Provides:       rtld(GNU_HASH)
 Requires:       filesystem
+%define ExtraBuildRequires python3, python3-libs
 %description
 This library provides the basic routines for allocating memory,
 searching directories, opening and closing files, reading and
@@ -74,7 +74,6 @@ sed -i 's/\\$$(pwd)/`pwd`/' timezone/Makefile
 %patch0 -p1
 %patch1 -p1
 %patch2 -p1
-%patch3 -p1
 install -vdm 755 %{_builddir}/%{name}-build
 # do not try to explicitly provide GLIBC_PRIVATE versioned libraries
 %define __find_provides %{_builddir}/%{name}-%{version}/find_provides.sh
@@ -104,14 +103,20 @@ chmod +x find_requires.sh
 #___EOF
 
 %build
+
 cd %{_builddir}/%{name}-build
 ../%{name}-%{version}/configure \
         --prefix=%{_prefix} \
+        --build=%{_build} \
+        --host=%{_host} \
         --disable-profile \
+        --disable-werror \
         --enable-kernel=3.2 \
         --enable-bind-now \
+        --enable-stack-protector=strong \
         --disable-experimental-malloc \
-        --disable-silent-rules
+        --disable-silent-rules \
+        libc_cv_slibdir=/lib
 
 # Sometimes we have false "out of memory" make error
 # just rerun/continue make to workaroung it.
@@ -132,39 +137,52 @@ cp -v %{SOURCE1} %{buildroot}/sbin
 #       Remove unwanted cruft
 rm -rf %{buildroot}%{_infodir}
 #       Install configuration files
+
+# Spaces should not be used in nsswitch.conf in the begining of new line
+# Only tab should be used as it expects the same in source code.
+# Otherwise "altfiles" will not be added. which may cause dbus.service failure
 cat > %{buildroot}%{_sysconfdir}/nsswitch.conf <<- "EOF"
 #       Begin /etc/nsswitch.conf
 
-        passwd: files
-        group: files
-        shadow: files
+	passwd: files
+	group: files
+	shadow: files
 
-        hosts: files dns
-        networks: files
+	hosts: files dns
+	networks: files
 
-        protocols: files
-        services: files
-        ethers: files
-        rpc: files
+	protocols: files
+	services: files
+	ethers: files
+	rpc: files
 #       End /etc/nsswitch.conf
 EOF
 cat > %{buildroot}%{_sysconfdir}/ld.so.conf <<- "EOF"
 #       Begin /etc/ld.so.conf
-        /usr/local/lib
-        /opt/lib
-        include /etc/ld.so.conf.d/*.conf
+	/usr/local/lib
+	/opt/lib
+	include /etc/ld.so.conf.d/*.conf
 EOF
+# Create empty ld.so.cache
+:> %{buildroot}%{_sysconfdir}/ld.so.cache
 popd
+
 %find_lang %{name} --all-name
 pushd localedata
 # Generate out of locale-archive an (en_US.) UTF-8 locale
 mkdir -p %{buildroot}/usr/lib/locale
-I18NPATH=. GCONV_PATH=../../glibc-build/iconvdata LC_ALL=C ../../glibc-build/locale/localedef --no-archive --prefix=%{buildroot} -A ../intl/locale.alias -i locales/en_US -c -f charmaps/UTF-8 en_US.UTF-8
+if [ %{_host} != %{_build} ]; then
+LOCALEDEF=localedef
+else
+LOCALEDEF=../../glibc-build/locale/localedef
+fi
+I18NPATH=. GCONV_PATH=../../glibc-build/iconvdata LC_ALL=C $LOCALEDEF --no-archive --prefix=%{buildroot} -A ../intl/locale.alias -i locales/en_US -c -f charmaps/UTF-8 en_US.UTF-8
 mv %{buildroot}/usr/lib/locale/en_US.utf8 %{buildroot}/usr/lib/locale/en_US.UTF-8
 popd
 # to do not depend on /bin/bash
 sed -i 's@#! /bin/bash@#! /bin/sh@' %{buildroot}/usr/bin/ldd
 sed -i 's@#!/bin/bash@#!/bin/sh@' %{buildroot}/usr/bin/tzselect
+
 
 %check
 cd %{_builddir}/glibc-build
@@ -176,11 +194,17 @@ make %{?_smp_mflags} check ||:
 # FAIL (intermittent) in chroot but PASS in container:
 # posix/tst-spawn3 and stdio-common/test-vfprintf
 n=0
-grep "^FAIL: posix/tst-spawn3" tests.sum >/dev/null && n=$((n+1)) ||:
-grep "^FAIL: stdio-common/test-vfprintf" tests.sum >/dev/null && n=$((n+1)) ||:
-# FAIL always on overlayfs/aufs (in container)
-grep "^FAIL: posix/tst-dir" tests.sum >/dev/null && n=$((n+1)) ||:
 
+grep "^FAIL: c++-types-check" tests.sum >/dev/null && n=$((n+1)) ||:
+# can fail in chroot
+grep "^FAIL: io/tst-fchownat" tests.sum >/dev/null && n=$((n+1)) ||:
+grep "^FAIL: malloc/tst-tcfree2" tests.sum >/dev/null && n=$((n+1)) ||:
+# can timeout
+grep "^FAIL: nptl/tst-mutex10" tests.sum >/dev/null && n=$((n+1)) ||:
+# can fail in chroot
+grep "^FAIL: nptl/tst-setuid3" tests.sum >/dev/null && n=$((n+1)) ||:
+grep "^FAIL: stdlib/tst-secure-getenv" tests.sum >/dev/null && n=$((n+1)) ||:
+grep "^FAIL: support/tst-support_descriptors" tests.sum >/dev/null && n=$((n+1)) ||:
 #https://sourceware.org/glibc/wiki/Testing/Testsuite
 grep "^FAIL: nptl/tst-eintr1" tests.sum >/dev/null && n=$((n+1)) ||:
 #This happens because the kernel fails to reap exiting threads fast enough,
@@ -200,14 +224,12 @@ grep "^FAIL: nptl/tst-eintr1" tests.sum >/dev/null && n=$((n+1)) ||:
 %config(noreplace) %{_sysconfdir}/nsswitch.conf
 %config(noreplace) %{_sysconfdir}/ld.so.conf
 %config(noreplace) %{_sysconfdir}/rpc
-%config(missingok,noreplace) %{_sysconfdir}/ld.so.cache
+%attr(0644,root,root) %config(missingok,noreplace) %{_sysconfdir}/ld.so.cache
 %config %{_sysconfdir}/locale-gen.conf
-/lib64/*
-%ifarch aarch64
-%exclude /lib
-%endif
-%exclude /lib64/libpcprofile.so
-%{_lib64dir}/*.so
+
+/lib/*
+%exclude /lib/libpcprofile.so
+%{_libdir}/*.so
 /sbin/ldconfig
 /sbin/locale-gen.sh
 %{_bindir}/*
@@ -228,7 +250,7 @@ grep "^FAIL: nptl/tst-eintr1" tests.sum >/dev/null && n=$((n+1)) ||:
 
 %files iconv
 %defattr(-,root,root)
-%{_lib64dir}/gconv/*
+%{_libdir}/gconv/*
 /usr/bin/iconv
 /usr/sbin/iconvconfig
 
@@ -244,8 +266,8 @@ grep "^FAIL: nptl/tst-eintr1" tests.sum >/dev/null && n=$((n+1)) ||:
 /usr/sbin/zdump
 /usr/sbin/zic
 /sbin/sln
-%{_lib64dir}/audit/*
-/lib64/libpcprofile.so
+%{_libdir}/audit/*
+/lib/libpcprofile.so
 
 %files nscd
 %defattr(-,root,root)
@@ -266,8 +288,8 @@ grep "^FAIL: nptl/tst-eintr1" tests.sum >/dev/null && n=$((n+1)) ||:
 %defattr(-,root,root)
 # TODO: Excluding for now to remove dependency on PERL
 # /usr/bin/mtrace
-%{_lib64dir}/*.a
-%{_lib64dir}/*.o
+%{_libdir}/*.a
+%{_libdir}/*.o
 %{_includedir}/*
 
 %files -f %{name}.lang lang
@@ -275,6 +297,16 @@ grep "^FAIL: nptl/tst-eintr1" tests.sum >/dev/null && n=$((n+1)) ||:
 
 
 %changelog
+*   Thu Mar 12 2020 Alexey Makhalov <amakhalov@vmware.com> 2.31-1
+-   Version update. Use /lib
+*   Tue Sep 24 2019 Alexey Makhalov <amakhalov@vmware.com> 2.28-5
+-   Cross compilling support
+-   Create empty ld.so.cache file for all builds (native and cross)
+-   Use /lib64 for aarch64
+*   Fri Jul 12 2019 Ankit Jain <ankitja@vmware.com> 2.28-4
+-   Replaced spaces with tab in nsswitch.conf file
+*   Fri Mar 08 2019 Alexey Makhalov <amakhalov@vmware.com> 2.28-3
+-   Fix CVE-2019-9169
 *   Tue Jan 22 2019 Anish Swaminathan <anishs@vmware.com> 2.28-2
 -   Fix CVE-2018-19591
 *   Tue Aug 28 2018 Alexey Makhalov <amakhalov@vmware.com> 2.28-1

@@ -2,21 +2,29 @@
 %{!?python3_sitelib: %global python3_sitelib %(python3 -c "from distutils.sysconfig import get_python_lib;print(get_python_lib())")}
 Summary:        SELinux library and simple utilities
 Name:           libselinux
-Version:        2.8
+Version:        3.0
 Release:        2%{?dist}
 License:        Public Domain
 Group:          System Environment/Libraries
-Source0:        https://raw.githubusercontent.com/wiki/SELinuxProject/selinux/files/releases/20160107/%{name}-%{version}.tar.gz
-%define sha1    libselinux=d45f2db91dbec82ef5a153aca247acc04234e8af
+Source0:        https://github.com/SELinuxProject/selinux/releases/download/20191204/%{name}-%{version}.tar.gz
+%define sha1    libselinux=2b948274ba4cbd9ad9e8d0994961457007d74d48
 Url:            https://github.com/SELinuxProject/selinux/wiki
 Vendor:         VMware, Inc.
 Distribution:   Photon
-BuildRequires:  libsepol-devel
+BuildRequires:  libsepol-devel = %{version}
 BuildRequires:  pcre-devel, swig
 BuildRequires:  python2-devel
 BuildRequires:  python3-devel
 Requires:       pcre-libs
-Requires:       libsepol
+# libselinux optionally uses libsepol by dlopen it.
+# libsepol really needed by highlevel SELinux packages
+# such as policycoreutils.
+# But libselinux is needed (dynamic linking) by systemd,
+# coreutils, pam even if SELinux is disabled,
+# just because they were dinamically linked against it.
+# Disable libsepol dependency to reduce minimal installation
+# size. And install libsepol when we really need SELinux
+#Requires:       libsepol
 
 %description
 Security-enhanced Linux is a feature of the Linux® kernel and a number
@@ -45,8 +53,8 @@ The libselinux-utils package contains the utilities
 Summary:        Header files and libraries used to build SELinux
 Group:          Development/Libraries
 Requires:       libselinux = %{version}-%{release}
+Requires:       libsepol-devel = %{version}
 Requires:       pcre-devel
-Requires:       libsepol-devel
 Provides:       pkgconfig(libselinux)
 
 %description    devel
@@ -76,12 +84,10 @@ The libselinux-python package contains the python3 bindings for developing
 SELinux applications.
 
 %prep
-%setup -qn %{name}-%{version}
+%setup -q
 
 %build
-sed '/unistd.h/a#include <sys/uio.h>' -i src/setrans_client.c
-make clean
-make %{?_smp_mflags} swigify
+make %{?_smp_mflags}
 make LIBDIR="%{_libdir}" %{?_smp_mflags} PYTHON=/usr/bin/python2 pywrap
 make LIBDIR="%{_libdir}" %{?_smp_mflags} PYTHON=/usr/bin/python3 pywrap
 
@@ -93,9 +99,8 @@ make DESTDIR="%{buildroot}" LIBDIR="%{_libdir}" SHLIBDIR="/%{_lib}" BINDIR="%{_b
 mkdir -p %{buildroot}/%{_prefix}/lib/tmpfiles.d
 mkdir -p %{buildroot}/var/run/setrans
 echo "d /var/run/setrans 0755 root root" > %{buildroot}/%{_prefix}/lib/tmpfiles.d/libselinux.conf
-
-%clean
-rm -rf %{buildroot}
+# do not package ru man pages
+rm -rf %{buildroot}%{_mandir}/ru
 
 %post -p /sbin/ldconfig
 
@@ -131,6 +136,12 @@ rm -rf %{buildroot}
 %{python3_sitelib}/*
 
 %changelog
+*   Fri Apr 24 2020 Alexey Makhalov <amakhalov@vmware.com> 3.0-2
+-   Remove libsepol runtime dependency.
+*   Sat Apr 18 2020 Alexey Makhalov <amakhalov@vmware.com> 3.0-1
+-   Version update.
+*   Wed Mar 25 2020 Alexey Makhalov <amakhalov@vmware.com> 2.8-3
+-   Fix compilation issue with glibc >= 2.30.
 *   Tue Jan 08 2019 Alexey Makhalov <amakhalov@vmware.com> 2.8-2
 -   Added BuildRequires python2-devel
 *   Fri Aug 10 2018 Srivatsa S. Bhat <srivatsa@csail.mit.edu> 2.8-1

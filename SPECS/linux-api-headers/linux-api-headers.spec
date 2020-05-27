@@ -1,6 +1,7 @@
+%define debug_package %{nil}
 Summary:	Linux API header files
 Name:		linux-api-headers
-Version:	4.19.15
+Version:	4.19.112
 Release:	1%{?dist}
 License:	GPLv2
 URL:		http://www.kernel.org/
@@ -8,7 +9,7 @@ Group:		System Environment/Kernel
 Vendor:		VMware, Inc.
 Distribution: Photon
 Source0:        http://www.kernel.org/pub/linux/kernel/v4.x/linux-%{version}.tar.xz
-%define sha1 linux=fb970b2014ecf9dcef23943f8095b28dfe0d6cca
+%define sha1 linux=266f149294b7222b23eab3292d0db98791343b0e
 BuildArch:	noarch
 %description
 The Linux API Headers expose the kernel's API for use by Glibc.
@@ -16,15 +17,52 @@ The Linux API Headers expose the kernel's API for use by Glibc.
 %setup -q -n linux-%{version}
 %build
 make mrproper
-make headers_check
 %install
+[ "%{_arch}" = "x86_64" ] && ARCH=x86_64
+[ "%{_arch}" = "aarch64" ] && ARCH=arm64
+[ "%{_arch}" = "i686" ] && ARCH=i386
 cd %{_builddir}/linux-%{version}
-make INSTALL_HDR_PATH=%{buildroot}%{_prefix} headers_install
+make ARCH=$ARCH headers_check
+make ARCH=$ARCH INSTALL_HDR_PATH=%{buildroot}%{_prefix} headers_install
 find /%{buildroot}%{_includedir} \( -name .install -o -name ..install.cmd \) -delete
 %files
 %defattr(-,root,root)
 %{_includedir}/*
 %changelog
+*   Wed Apr 08 2020 Srivatsa S. Bhat (VMware) <srivatsa@csail.mit.edu> 4.19.112-1
+-   Update to version 4.19.112
+*   Tue Feb 18 2020 Vikash Bansal <bvikas@vmware.com> 4.19.104-1
+-   Update to version 4.19.104
+*   Fri Jan 17 2020 Srivatsa S. Bhat (VMware) <srivatsa@csail.mit.edu> 4.19.97-1
+-   Update to version 4.19.97
+*   Mon Dec 09 2019 Alexey Makhalov <amakhalov@vmware.com> 4.19.87-2
+-   Make it arch specific
+*   Fri Dec 06 2019 Ajay Kaher <akaher@vmware.com> 4.19.87-1
+-   Update to version 4.19.87
+*   Tue Nov 12 2019 Srivatsa S. Bhat (VMware) <srivatsa@csail.mit.edu> 4.19.84-1
+-   Update to version 4.19.84
+*   Fri Nov 08 2019 Srivatsa S. Bhat (VMware) <srivatsa@csail.mit.edu> 4.19.82-1
+-   Update to version 4.19.82
+*   Tue Oct 15 2019 Ajay Kaher <akaher@vmware.com> 4.19.79-1
+-   Update to version 4.19.79
+*   Wed Oct 02 2019 Ajay Kaher <akaher@vmware.com> 4.19.76-1
+-   Update to version 4.19.76
+*   Wed Sep 11 2019 Srivatsa S. Bhat (VMware) <srivatsa@csail.mit.edu> 4.19.72-1
+-   Update to version 4.19.72
+*   Fri Aug 30 2019 Alexey Makhalov <amakhalov@vmware.com> 4.19.69-1
+-   Update to version 4.19.69
+*   Tue Aug 06 2019 Alexey Makhalov <amakhalov@vmware.com> 4.19.65-1
+-   Update to version 4.19.65
+*   Mon Jun 17 2019 Srivatsa S. Bhat (VMware) <srivatsa@csail.mit.edu> 4.19.52-1
+-   Update to version 4.19.52
+*   Tue May 07 2019 Ajay Kaher <akaher@vmware.com> 4.19.40-1
+-   Update to version 4.19.40
+*   Wed Mar 27 2019 Srivatsa S. Bhat (VMware) <srivatsa@csail.mit.edu> 4.19.32-1
+-   Update to version 4.19.32
+*   Thu Mar 14 2019 Srivatsa S. Bhat (VMware) <srivatsa@csail.mit.edu> 4.19.29-1
+-   Update to version 4.19.29
+*   Tue Mar 05 2019 Ajay Kaher <akaher@vmware.com> 4.19.26-1
+-   Update to version 4.19.26
 *   Tue Jan 15 2019 Srivatsa S. Bhat (VMware) <srivatsa@csail.mit.edu> 4.19.15-1
 -   Update to version 4.19.15
 *   Mon Dec 10 2018 Srivatsa S. Bhat (VMware) <srivatsa@csail.mit.edu> 4.19.6-1

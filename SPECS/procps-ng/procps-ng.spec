@@ -1,7 +1,7 @@
 Summary:        Programs for monitoring processes
 Name:           procps-ng
 Version:        3.3.15
-Release:        1%{?dist}
+Release:        3%{?dist}
 License:        GPLv2
 URL:            http://procps.sourceforge.net/
 Group:          Applications/System
@@ -11,14 +11,14 @@ Source0:        http://sourceforge.net/projects/procps-ng/files/Production/%{nam
 %define sha1    procps-ng=2929bc64f0cf7b2db997eef79b7187658e47230d
 BuildRequires:  ncurses-devel
 Requires:       ncurses
-Conflicts:      toybox
+Conflicts:      toybox < 0.8.2-2
 %description
 The Procps package contains programs for monitoring processes.
 %package    devel
 Summary:    Header and development files for procps-ng
 Requires:   %{name} = %{version}
 %description    devel
-It contains the libraries and header files to create applications 
+It contains the libraries and header files to create applications
 
 %package lang
 Summary: Additional language files for procps-ng
@@ -30,10 +30,13 @@ These are the additional language files of procps-ng
 %prep
 %setup -q
 %build
-./configure \
-    --prefix=%{_prefix} \
-    --exec-prefix= \
-    --libdir=%{_libdir} \
+if [ %{_host} != %{_build} ]; then
+  export ac_cv_func_malloc_0_nonnull=yes
+  export ac_cv_func_realloc_0_nonnull=yes
+fi
+%configure \
+    --bindir=/bin \
+    --sbindir=/sbin \
     --docdir=%{_defaultdocdir}/%{name}-%{version} \
     --disable-static \
     --disable-kill \
@@ -100,6 +103,10 @@ make %{?_smp_mflags} check
 %defattr(-,root,root)
 
 %changelog
+*   Thu Apr 16 2020 Alexey Makhalov <amakhalov@vmware.com> 3.3.15-3
+-   Do not conflict with toybox >= 0.8.2-2
+*   Thu Nov 15 2018 Alexey Makhalov <amakhalov@vmware.com> 3.3.15-2
+-   Cross compilation support
 *   Fri Aug 10 2018 Tapas Kundu <tkundu@vmware.com> 3.3.15-1
 -   Upgrade version to 3.3.15.
 -   Fix for CVE-2018-1122 CVE-2018-1123 CVE-2018-1124 CVE-2018-1125

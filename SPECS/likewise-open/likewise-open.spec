@@ -1,12 +1,12 @@
 Name: 		likewise-open
 Summary: 	Likewise Open
 Version: 	6.2.11.13
-Release:    0%{?dist}
-Group: 		Development/Libraries
-Vendor:     VMware, Inc.
+Release: 	2%{?dist}
+Group:   	Development/Libraries
+Vendor: 	VMware, Inc.
 License: 	GPL 2.0,LGPL 2.1
 URL: 		https://github.com/vmware/likewise-open
-Source0:    %{name}-%{version}.tar.gz
+Source0: 	%{name}-%{version}.tar.gz
 %define sha1 likewise-open=7012d73820c8cbdb8f0fa3b38f7478bce74f59a6
 Distribution:   Photon
 Requires:       Linux-PAM
@@ -57,7 +57,7 @@ export LW_FEATURE_LEVEL="auth"
 export LSA_RPC_SERVERS="yes"
 export LW_DEVICE_PROFILE="photon"
 
-export CFLAGS="-Wno-error=unused-but-set-variable -Wno-error=implicit-function-declaration -Wno-error=sizeof-pointer-memaccess -Wno-error=unused-local-typedefs -Wno-error=pointer-sign -Wno-error=address -Wno-unused-but-set-variable -Wno-unused-const-variable -Wno-misleading-indentation"
+export CFLAGS="-Wno-error=unused-but-set-variable -Wno-error=implicit-function-declaration -Wno-error=sizeof-pointer-memaccess -Wno-error=unused-local-typedefs -Wno-error=pointer-sign -Wno-error=address -Wno-unused-but-set-variable -Wno-unused-const-variable -Wno-misleading-indentation -Wno-error=format-overflow -Wno-error=format-truncation"
 ../configure  --prefix=/opt/likewise \
              --libdir=/opt/likewise/lib64 \
              --datadir=/opt/likewise/share \
@@ -87,7 +87,18 @@ fi
 
 case "$1" in
     1)
-        if [ -n "`pidof lwsmd`" ]; then
+        #check if we are in chroot
+        #If lwsmd service is running in vm, we still get the pidof lwsmd in chroot
+        #and that causes us to exit with error.
+        if [ "$(stat -c %d:%i /)" != "$(stat -c %d:%i /proc/1/root/.)" ]; then
+            if [ -f /lib/systemd/system/lwsmd.service]; then
+                echo "Likewise server Manager detected in chroot. Exiting."
+                exit 1
+            else
+                echo "Likewise server Manager not detected in chroot."
+                exit 0
+            fi
+        elif [ -n "`pidof lwsmd`" ]; then
             echo "Error: Likewise Service Manager detected. Exiting."
             exit 1
         fi
@@ -288,6 +299,11 @@ rm -rf %{buildroot}/*
 /opt/likewise/lib64/pkgconfig/libedit.pc
 
 %changelog
+*   Thu Apr 02 2020 Alexey Makhalov <amakhalov@vmware.com> 6.2.11.13-2
+-   Fix compilation issue with gcc-8.4.0
+*   Fri Aug 23 2019 Tapas Kundu <tkundu@vmware.com> 6.2.11.13-1
+-   Added checks to make sure if we are in chroot or not.
+-   Check pid of lwsmd when we are not in chroot.
 *   Wed Dec 12 2018 Sriram Nambakam <snambakam@vmware.com> 6.2.11.13-0
 -   Apply patches to source tar ball
 *   Mon Nov 5 2018 Sriram Nambakam <snambakam@vmware.com> 6.2.11.12-2

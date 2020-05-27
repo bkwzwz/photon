@@ -24,7 +24,7 @@ After you download the Photon OS ISO image into a folder of your choice, complet
     
     Specify a guest operating system.
     
-    - For Compatibility, select **ESXi 6.5**.
+    - For Compatibility, select **ESXi 6.7**.
     - For Guest OS family, select **Linux**.
     - For Guest OS version, select **VMware Photon OS (64-bit)**.
     
@@ -127,15 +127,15 @@ After you download the Photon OS ISO image into a folder of your choice, complet
 		</tr>
 		<tr>
 		<td><b>Photon Minimal</b></td>
-		<td>Photon Minimum is a very lightweight version of the container host runtime that is best suited for container management and hosting. There is sufficient packaging and functionality to allow most common operations around modifying existing containers, as well as being a highly performant and full-featured runtime.</p></td>
+		<td>Photon Minimum is a very lightweight version of the container host runtime that is best suited for  for devices that have limited compute and memory capabilities. There is sufficient packaging and functionality to allow most common operations around modifying existing containers, as well as being a highly performant and full-featured runtime.</p></td>
 		</tr>
 		<tr>
-		<td><b>Photon Full</b></td>
-		<td>Photon Full includes several additional packages to enhance the authoring and packaging of containerized applications and/or system customization. For simply running containers, Photon Full will be overkill. Use Photon Full for developing and packaging the application that will be run as a container, as well as authoring the container, itself. For testing and validation purposes, Photon Full will include all components necessary to run containers.</td>
+		<td><b>Photon Developer</b></td>
+		<td>Photon Developer includes several additional packages to enhance the authoring and packaging of containerized applications and/or system customization. Use Photon Developer for developing and packaging the application that will be run as a container, as well as authoring the container, itself. For testing and validation purposes, Photon Developer includes all components necessary to run containers.</td>
 		</tr>
 		<tr>
-		<td><b>Photon OSTree Server<b></td>
-		<td>This installation profile will create the server instance that will host the filesystem tree and managed definitions for rpm-ostree managed hosts created with the "Photon OSTree Host" installation profile. Most environments should need only one Photon OSTree Server instance to manage the state of the Photon OSTree Hosts. Use Photon OSTree Server when you are establishing a new repository and management node for Photon OS hosts.</td>
+		<td><b>Photon Edge<b></td>
+		<td>Photon Edge includes packages relevant to an edge gateway device.</td>
 		</tr>
 		</tbody>
 		</table>
@@ -144,6 +144,16 @@ After you download the Photon OS ISO image into a folder of your choice, complet
     
     Select the option you want and press the Enter key.
 
+1. The **Network Configuration** screen appears, select one of the four options to configure your network.
+![Network Sonfiguration](../images/Network_configuration.png)
+    1. Choose **Configure network automatically** and select **Next** to configure the network automatically.
+    1. To configure network automatically with the DHCP hostname, select **Configure network automatically with a DHCP hostname** and select **Next**. Enter the DHCP Hostname and select **Next**.
+![../images/DHCP_hostname_for_your_system.png](../images/DHCP_hostname_for_your_system.png)
+    1. To configure the network manually, select **Configure Network manually**. In the window that appears, enter the IP Address, Netmask, Gateway and Nameserver and select **OK**.
+![../images/Configure_Network_Manually.png](../images/Configure_Network_Manually.png)
+
+    1. If your network interface is directly connected to the VLAN trunk port, choose **YES** on the Configure the network screen. Enter the VLAN ID and select **Next**.
+![Configure the network](../images/Configure_the_network.png).
 1. Select the Linux Kernel
 
     Select a Linux kernel to install.

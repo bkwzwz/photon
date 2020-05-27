@@ -1,27 +1,33 @@
 Summary:        Linux kernel packet control tool
 Name:           iptables
-Version:        1.8.0
+Version:        1.8.4
 Release:        1%{?dist}
 License:        GPLv2+
 URL:            http://www.netfilter.org/projects/iptables
 Group:          System Environment/Security
 Vendor:         VMware, Inc.
 Distribution:   Photon
+
 Source0:        http://www.netfilter.org/projects/iptables/files/%{name}-%{version}.tar.bz2
-%define sha1    %{name}-%{version}=04924fd00dbaf8189f0777af90f7bdb73ac7e47c
+%define sha1    %{name}-%{version}=cd5fe776fb2b0479b3234758fc333777caa1239b
 Source1:        iptables.service
 Source2:        iptables
 Source3:        iptables.stop
 Source4:        ip4save
 Source5:        ip6save
+
+Requires(post):   systemd
+Requires(preun):  systemd
+Requires(postun): systemd
+
 BuildRequires:  jansson-devel
 BuildRequires:  libmnl-devel
 BuildRequires:  libnftnl-devel
 BuildRequires:  systemd
-Requires:       systemd
+
 %description
-The next part of this chapter deals with firewalls. The principal 
-firewall tool for Linux is Iptables. You will need to install 
+The next part of this chapter deals with firewalls. The principal
+firewall tool for Linux is Iptables. You will need to install
 Iptables if you intend on using any form of a firewall.
 
 %package        devel
@@ -32,15 +38,11 @@ It contains the libraries and header files to create applications.
 
 %prep
 %setup -q
+
 %build
-./configure \
-    CFLAGS="%{optflags}" \
-    CXXFLAGS="%{optflags}" \
+%configure \
     --disable-silent-rules \
-    --prefix=%{_prefix} \
     --exec-prefix= \
-    --bindir=%{_bindir} \
-    --libdir=%{_libdir} \
     --with-xtlibdir=%{_libdir}/iptables \
     --with-pkgconfigdir=%{_libdir}/pkgconfig \
     --disable-nftables \
@@ -65,16 +67,15 @@ find %{buildroot} -name '*.a'  -delete
 find %{buildroot} -name '*.la' -delete
 %{_fixperms} %{buildroot}/*
 
-%preun
-%systemd_preun iptables.service
-
 %post
-/sbin/ldconfig
-%systemd_post iptables.service
+%systemd_post iptables.service ip6tables.service
+
+%preun
+%systemd_preun iptables.service ip6tables.service
 
 %postun
-/sbin/ldconfig
-%systemd_postun_with_restart iptables.service
+%?ldconfig
+%systemd_postun_with_restart iptables.service ip6tables.service
 
 %clean
 rm -rf %{buildroot}/*
@@ -84,12 +85,12 @@ rm -rf %{buildroot}/*
 %config(noreplace) /etc/systemd/scripts/iptables.stop
 %config(noreplace) /etc/systemd/scripts/ip4save
 %config(noreplace) /etc/systemd/scripts/ip6save
-/lib/systemd/system/iptables.service
-/sbin/*
+%{_sbindir}/*
 %{_bindir}/*
 %{_libdir}/*.so.*
 %{_libdir}/iptables/*
 %{_libdir}/iptables-xml
+%{_libdir}/systemd/system/iptables.service
 %{_mandir}/man1/*
 %{_mandir}/man8/*
 
@@ -100,6 +101,12 @@ rm -rf %{buildroot}/*
 %{_mandir}/man3/*
 
 %changelog
+*   Mon Apr 06 2020 Susant Sahani <ssahani@vmware.com> 1.8.4-1
+-   Updated to version 1.8.4
+*   Tue Jul 30 2019 Shreyas B. <shreyasb@vmware.com> 1.8.3-1
+-   Updated to version 1.8.3
+*   Tue Feb 26 2019 Alexey Makhalov <amakhalov@vmware.com> 1.8.0-2
+-   Flush ip6tables on service stop
 *   Mon Sep 10 2018 Ankit Jain <ankitja@vmware.com> 1.8.0-1
 -   Updated to version 1.8.0
 *   Thu Aug 10 2017 Priyesh Padmavilasom <ppadmavilasom@vmware.com> 1.6.1-4

@@ -2,7 +2,6 @@ import sys
 import os.path
 import subprocess
 import shutil
-import docker
 from constants import constants
 from Logger import Logger
 from CommandUtils import CommandUtils
@@ -136,11 +135,21 @@ class Chroot(Sandbox):
             return True
         for mountpoint in listmountpoints:
             cmd = "umount " + mountpoint
-            process = subprocess.Popen("%s" %cmd, shell=True, stdout=subprocess.PIPE,
+            process = subprocess.Popen("%s && sync && sync && sync" % (cmd),
+                                       shell=True,
+                                       stdout=subprocess.PIPE,
                                        stderr=subprocess.PIPE)
             retval = process.wait()
             if retval != 0:
-                raise Exception("Unable to unmount " + mountpoint)
+                # Try unmount with lazy umount
+                cmd = "umount -l " + mountpoint
+                process = subprocess.Popen("%s && sync && sync && sync" % (cmd),
+                                           shell=True,
+                                           stdout=subprocess.PIPE,
+                                           stderr=subprocess.PIPE)
+                retval = process.wait()
+                if retval != 0:
+                    raise Exception("Unable to unmount " + mountpoint)
 
     def _findmountpoints(self, chrootPath):
         if not chrootPath.endswith("/"):
@@ -166,6 +175,7 @@ class Chroot(Sandbox):
 
 class Container(Sandbox):
     def __init__(self, logger):
+        import docker
         Sandbox.__init__(self, logger)
         self.containerID = None
         self.dockerClient = docker.from_env(version="auto")

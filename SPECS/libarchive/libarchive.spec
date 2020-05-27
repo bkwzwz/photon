@@ -1,6 +1,6 @@
 Summary:    Multi-format archive and compression library
 Name:       libarchive
-Version:    3.3.3
+Version:    3.4.2
 Release:    1%{?dist}
 License:    BSD 2-Clause License
 URL:        http://www.libarchive.org/
@@ -8,7 +8,7 @@ Group:      System Environment/Development
 Vendor:     VMware, Inc.
 Distribution:   Photon
 Source0:    http://www.libarchive.org/downloads/%{name}-%{version}.tar.gz
-%define sha1 libarchive=499a8f48a895faff4151d7398b24070d578f0b2e
+%define sha1 libarchive=47804d0dc164edb43b6184949b3d8a3687e1cddd
 BuildRequires:  xz-libs
 BuildRequires:  xz-devel
 Requires:       xz-libs
@@ -17,16 +17,16 @@ Multi-format archive and compression library
 
 %package	devel
 Summary:	Header and development files
-Requires:	%{name} = %{version}
+Requires:	%{name} = %{version}-%{release}
 %description	devel
-It contains the libraries and header files to create applications 
+It contains the libraries and header files to create applications
 
 %prep
 %setup -q
 
 %build
 export CFLAGS="%{optflags}"
-./configure  --prefix=%{_prefix} --disable-static
+%configure --disable-static
 
 make %{?_smp_mflags}
 
@@ -54,6 +54,13 @@ make %{?_smp_mflags} check
 %{_libdir}/pkgconfig/*.pc
 
 %changelog
+*   Mon Mar 09 2020 Ankit Jain <ankitja@vmware.com> 3.4.2-1
+-   Updated to Version 3.4.2
+*   Wed Feb 05 2020 Ankit Jain <ankitja@vmware.com> 3.3.3-3
+-   Fix for CVE-2019-19221
+*   Fri Nov 08 2019 Ankit Jain <ankitja@vmware.com> 3.3.3-2
+-   Fix for CVE-2019-18408,CVE-2018-1000879,CVE-2018-1000880
+-   CVE-2019-1000019,CVE-2019-1000020,CVE-2018-1000877, CVE-2018-1000878
 *   Thu Sep 13 2018 Siju Maliakkal <smaliakkal@vmware.com> 3.3.3-1
 -   Updated to latest version
 *   Fri Sep 15 2017 Dheeraj Shetty <dheerajs@vmware.com> 3.3.1-2

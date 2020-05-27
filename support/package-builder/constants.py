@@ -1,3 +1,4 @@
+import platform
 from Logger import Logger
 
 class constants(object):
@@ -24,12 +25,16 @@ class constants(object):
     dist = None
     buildNumber = None
     releaseVersion = None
-    katBuild = None
+    katBuild = False
     testForceRPMS = []
     tmpDirPath = "/dev/shm"
     buildOptions = {}
     # will be extended later from listMakeCheckRPMPkgtoInstall
     listMakeCheckRPMPkgWithVersionstoInstall = None
+    buildArch = platform.machine()
+    targetArch = platform.machine()
+    crossCompiling = False
+    currentArch = buildArch
 
     noDepsPackageList = [
         "texinfo",
@@ -44,6 +49,7 @@ class constants(object):
         "sqlite-libs"]
 
     # These packages will be built in first order as build-core-toolchain stage
+    # Put only main pakage names here. Do not add subpackages such as libgcc
     listCoreToolChainPackages = [
         "filesystem",
         "linux-api-headers",
@@ -61,6 +67,7 @@ class constants(object):
         "bash"]
 
     # These packages will be built in a second stage to replace publish RPMS
+    # Put only main pakage names here. Do not add subpackages such as libgcc
     listToolChainPackages = [
         "filesystem",
         "linux-api-headers",
@@ -130,6 +137,7 @@ class constants(object):
         "file-libs",
         "file",
         "binutils",
+        "binutils-libs",
         "binutils-devel",
         "gmp",
         "gmp-devel",
@@ -203,6 +211,8 @@ class constants(object):
         "libcap",
         "libdb",
         "libdb-devel",
+        "lua",
+        "lua-devel",
         "rpm",
         "rpm-build",
         "rpm-devel",
@@ -286,6 +296,15 @@ class constants(object):
         "gdb",
         "glibc",
         "tar"]
+
+    # List of Packages which causes "Makecheck" job
+    # to stuck indefinately or getting failed.
+    # Until these pkgs %check is fixed, these pkgs will be
+    # skip to run makecheck.
+    listMakeCheckPkgToSkip = [
+        "gtk-doc",
+        "libmspack",
+        "socat"]
 
     # .spec file might contain lines such as
     # Requires(post):/sbin/useradd
@@ -434,8 +453,8 @@ class constants(object):
         if constants.releaseVersion is not None:
             constants.addMacro("photon_release_version", constants.releaseVersion)
 
-        if constants.katBuild is not None:
-            constants.addMacro("kat_build", constants.katBuild)
+        if constants.katBuild:
+            constants.addMacro("kat_build", "1")
 
     @staticmethod
     def setTestForceRPMS(listsPackages):

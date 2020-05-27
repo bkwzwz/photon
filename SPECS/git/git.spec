@@ -1,16 +1,18 @@
 Summary:        Fast distributed version control system
 Name:           git
-Version:        2.19.0
-Release:        3%{?dist}
+Version:        2.26.0
+Release:        2%{?dist}
 License:        GPLv2
 URL:            http://git-scm.com/
 Group:          System Environment/Programming
 Vendor:         VMware, Inc.
 Distribution:   Photon
 Source0:        https://www.kernel.org/pub/software/scm/git/%{name}-%{version}.tar.xz
-%define sha1    git=17f92df56588c58d2ebaacc5a47f677c8d8e7c61
+%define sha1    git=1580df90eecae21664646ac6eb7eba4af4934fe4
+Patch0:         CVE-2020-5260.patch
 BuildRequires:  curl-devel
 BuildRequires:  python2
+BuildRequires:  openssl-devel
 Requires:       openssl
 Requires:       curl
 Requires:       expat
@@ -40,6 +42,7 @@ These are the additional language files of git.
 
 %prep
 %setup -q
+%patch0 -p1
 %build
 %configure \
     CFLAGS="%{optflags}" \
@@ -90,6 +93,12 @@ rm -rf %{buildroot}/*
 %defattr(-,root,root)
 
 %changelog
+*   Mon Apr 27 2020 Prashant S Chauhan <psinghchauha@vmware.com> 2.26.0-2
+-   Added patch, Fixes CVE-2020-5260
+*   Wed Apr 01 2020 Susant Sahani <ssahani@vmware.com> 2.26.0-1
+-   Updated to version 2.26.0
+*   Wed Feb 12 2019 Prashant S Chauhan <psinghchauha@vmware.com> 2.23.1-1
+-   Updated to version 2.23.1 . Fixes CVE-2019-1348
 *   Thu Jan 10 2019 Alexey Makhalov <amakhalov@vmware.com> 2.19.0-3
 -   Added Requires python2
 *   Thu Oct 04 2018 Dweep Advani <dadvani@vmware.com> 2.19.0-2

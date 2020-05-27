@@ -1,17 +1,17 @@
 Summary:        A high-level scripting language
 Name:           python3
-Version:        3.7.0
-Release:        3%{?dist}
+Version:        3.7.5
+Release:        2%{?dist}
 License:        PSF
 URL:            http://www.python.org/
 Group:          System Environment/Programming
 Vendor:         VMware, Inc.
 Distribution:   Photon
 Source0:        https://www.python.org/ftp/python/%{version}/Python-%{version}.tar.xz
-%define sha1    Python=653cffa5b9f2a28150afe4705600d2e55d89b564
+%define sha1    Python=860f88886809ae8bfc86afa462536811c347a2a1
 Patch0:         cgi3.patch
 Patch1:         python3-support-photon-platform.patch
-Patch2:         CVE-2018-14647.patch
+Patch2:         CVE-2019-17514.patch
 BuildRequires:  pkg-config >= 0.28
 BuildRequires:  bzip2-devel
 BuildRequires:  ncurses-devel
@@ -21,6 +21,9 @@ BuildRequires:  xz-devel
 BuildRequires:  expat-devel >= 2.1.0
 BuildRequires:  libffi-devel >= 3.0.13
 BuildRequires:  sqlite-devel
+BuildRequires:  util-linux-devel
+# cross compilation requires native python3 installed for ensurepip
+%define BuildRequiresNative python3-xml
 Requires:       ncurses
 Requires:       openssl
 Requires:       python3-libs = %{version}-%{release}
@@ -31,6 +34,12 @@ Provides:       python(abi)
 Provides:       /usr/bin/python
 Provides:       /bin/python
 Provides:       /bin/python3
+
+%if %{with_check}
+BuildRequires:  iana-etc
+BuildRequires:  tzdata
+BuildRequires:  curl-devel
+%endif
 
 %description
 The Python 3 package contains a new version of Python development environment.
@@ -47,6 +56,7 @@ Requires:       libffi >= 3.0.13
 Requires:       ncurses
 Requires:       sqlite-libs
 Requires:       bzip2-libs
+Requires:       util-linux-libs
 
 
 %description    libs
@@ -116,6 +126,7 @@ Summary:        Download, build, install, upgrade, and uninstall Python packages
 Group:          Development/Tools
 BuildArch:      noarch
 Requires:       python3 = %{version}-%{release}
+Requires:       python3-xml = %{version}-%{release}
 
 %description    setuptools
 setuptools is a collection of enhancements to the Python distutils that allow you to more easily build and distribute Python packages, especially ones that have dependencies on other packages.
@@ -136,6 +147,12 @@ The test package contains all regression tests for Python as well as the modules
 
 %build
 export OPT="${CFLAGS}"
+if [ %{_host} != %{_build} ]; then
+  ln -s python3 /bin/python
+  export ac_cv_buggy_getaddrinfo=no
+  export ac_cv_file__dev_ptmx=yes
+  export ac_cv_file__dev_ptc=no
+fi
 %configure \
     CFLAGS="%{optflags}" \
     CXXFLAGS="%{optflags}" \
@@ -156,13 +173,31 @@ ln -sf libpython3.7m.so %{buildroot}%{_libdir}/libpython3.7.so
 find %{buildroot}%{_libdir} -name '*.pyc' -delete
 find %{buildroot}%{_libdir} -name '*.pyo' -delete
 find %{buildroot}%{_libdir} -name '*.o' -delete
+find %{buildroot}%{_libdir} -name '*__pycache__' -delete
 rm %{buildroot}%{_bindir}/2to3
 
 %check
 make  %{?_smp_mflags} test
 
-%post -p /sbin/ldconfig
-%postun -p /sbin/ldconfig
+%post
+if [ "$(stat -c %d:%i /)" == "$(stat -c %d:%i /proc/1/root/.)" ]; then
+#if we are not in chroot
+    ln -sf /usr/bin/python3 /usr/bin/python
+fi
+/sbin/ldconfig
+
+%postun
+#we are handling the uninstall rpm
+#in case of upgrade/downgrade we dont need any action
+#as python will still be linked to python3
+if [ $1 -eq 0 ] ; then
+    if [ -f "/usr/bin/python2" ]; then
+        ln -sf /usr/bin/python2 /usr/bin/python
+    else
+        rm /usr/bin/python
+    fi
+fi
+/sbin/ldconfig
 
 %clean
 rm -rf %{buildroot}/*
@@ -178,7 +213,7 @@ rm -rf %{buildroot}/*
 %{_mandir}/*/*
 
 %dir %{_libdir}/python3.7
-%dir %{_libdir}/python3.7/site-packages
+%{_libdir}/python3.7/site-packages/README.txt
 
 %{_libdir}/libpython3.so
 %{_libdir}/libpython3.7.so
@@ -196,8 +231,6 @@ rm -rf %{buildroot}/*
 %defattr(-,root,root)
 %doc LICENSE README.rst
 %{_libdir}/python3.7
-%{_libdir}/python3.7/site-packages/easy_install.py
-%{_libdir}/python3.7/site-packages/README.txt
 %exclude %{_libdir}/python3.7/site-packages/
 %exclude %{_libdir}/python3.7/ctypes/test
 %exclude %{_libdir}/python3.7/distutils/tests
@@ -231,7 +264,6 @@ rm -rf %{buildroot}/*
 %{_bindir}/python3.7m-config
 
 %doc Misc/README.valgrind Misc/valgrind-python.supp Misc/gdbinit
-%{_libdir}/libpython3.so
 %exclude %{_bindir}/2to3*
 %exclude %{_bindir}/idle*
 
@@ -245,20 +277,50 @@ rm -rf %{buildroot}/*
 %files pip
 %defattr(-,root,root,755)
 %{_libdir}/python3.7/site-packages/pip/*
-%{_libdir}/python3.7/site-packages/pip-10.0.1.dist-info/*
+%{_libdir}/python3.7/site-packages/pip-19.2.3.dist-info/*
 %{_bindir}/pip*
 
 %files setuptools
 %defattr(-,root,root,755)
 %{_libdir}/python3.7/site-packages/pkg_resources/*
 %{_libdir}/python3.7/site-packages/setuptools/*
-%{_libdir}/python3.7/site-packages/setuptools-39.0.1.dist-info/*
+%{_libdir}/python3.7/site-packages/setuptools-41.2.0.dist-info/*
 %{_bindir}/easy_install-3.7
 
 %files test
 %{_libdir}/python3.7/test/*
 
 %changelog
+*   Fri May 01 2020 Alexey Makhalov <amakhalov@vmware.com> 3.7.5-2
+-   -setuptools requires -xml.
+*   Sat Dec 07 2019 Tapas Kundu <tkundu@vmware.com> 3.7.5-1
+-   Updated to 3.7.5 release
+-   Linked /usr/bin/python to python3.
+-   While uninstalling link to python2 if available.
+*   Tue Nov 26 2019 Alexey Makhalov <amakhalov@vmware.com> 3.7.4-5
+-   Cross compilation support
+*   Tue Nov 05 2019 Tapas Kundu <tkundu@vmware.com> 3.7.4-4
+-   Fix for CVE-2019-17514
+*   Thu Oct 24 2019 Shreyas B. <shreyasb@vmware.com> 3.7.4-3
+-   Fixed makecheck errors.
+*   Wed Oct 23 2019 Tapas Kundu <tkundu@vmware.com> 3.7.4-2
+-   Fix conflict of libpython3.so
+*   Thu Oct 17 2019 Tapas Kundu <tkundu@vmware.com> 3.7.4-1
+-   Updated to patch release 3.7.4
+-   Fix CVE-2019-16935
+*   Wed Sep 11 2019 Tapas Kundu <tkundu@vmware.com> 3.7.3-3
+-   Fix CVE-2019-16056
+*   Mon Jun 17 2019 Tapas Kundu <tkundu@vmware.com> 3.7.3-2
+-   Fix for CVE-2019-10160
+*   Mon Jun 10 2019 Tapas Kundu <tkundu@vmware.com> 3.7.3-1
+-   Update to Python 3.7.3 release
+*   Thu May 23 2019 Tapas Kundu <tkundu@vmware.com> 3.7.0-6
+-   Fix for CVE-2019-5010
+-   Fix for CVE-2019-9740
+*   Tue Mar 12 2019 Tapas Kundu <tkundu@vmware.com> 3.7.0-5
+-   Fix for CVE-2019-9636
+*   Mon Feb 11 2019 Taps Kundu <tkundu@vmware.com> 3.7.0-4
+-   Fix for CVE-2018-20406
 *   Fri Dec 21 2018 Tapas Kundu <tkundu@vmware.com> 3.7.0-3
 -   Fix for CVE-2018-14647
 *   Tue Dec 04 2018 Tapas Kundu <tkundu@vmware.com> 3.7.0-2

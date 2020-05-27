@@ -3,7 +3,7 @@
 
 Summary:        An asynchronous networking framework written in Python
 Name:           python-Twisted
-Version:        18.7.0
+Version:        19.10.0
 Release:        2%{?dist}
 License:        MIT
 Group:          Development/Languages/Python
@@ -11,7 +11,7 @@ Vendor:         VMware, Inc.
 Distribution:   Photon
 Url:            https://twistedmatrix.com
 Source0:        https://pypi.python.org/packages/source/T/Twisted/Twisted-%{version}.tar.bz2
-%define sha1 Twisted=949c75da0426ca139a3128fecb484eeb7513087e
+%define sha1 Twisted=38a7f1b9c63ba0d2db553e2d210af2fd01b3ed21
 Patch0:        extra_dependency.patch
 Patch1:        no_packet.patch
 
@@ -24,6 +24,7 @@ BuildRequires:  python-zope.interface
 BuildRequires:  python-cryptography
 BuildRequires:  python-pyOpenSSL
 BuildRequires:  python-six
+BuildRequires:  python-xml
 
 BuildRequires:  python3-devel
 BuildRequires:  python3-libs
@@ -31,6 +32,15 @@ BuildRequires:  python3-incremental
 BuildRequires:  python3-zope.interface
 BuildRequires:  python3-setuptools
 BuildRequires:  python3-xml
+
+%if %{with_check}
+BuildRequires:  net-tools
+BuildRequires:  sudo
+BuildRequires:  shadow
+BuildRequires:  curl-devel
+BuildRequires:  python3-pip
+%endif
+
 Requires:       python2
 Requires:       python2-libs
 Requires:       python-zope.interface
@@ -39,6 +49,7 @@ Requires:       python-incremental
 Requires:       python-constantly
 Requires:       python-hyperlink
 Requires:       python-attrs
+Requires:       python-PyHamcrest
 %description
 Twisted is an event-driven networking engine written in Python and licensed under the open source ​MIT license. Twisted runs on Python 2 and an ever growing subset also works with Python 3.
 
@@ -55,6 +66,7 @@ Requires:       python3-incremental
 Requires:       python3-constantly
 Requires:       python3-hyperlink
 Requires:       python3-attrs
+Requires:       python3-PyHamcrest
 
 %description -n python3-Twisted
 Python 3 version.
@@ -87,19 +99,12 @@ popd
 python2 setup.py install --prefix=%{_prefix} --root=%{buildroot}
 
 %check
-easy_install_2=$(ls /usr/bin |grep easy_install |grep 2)
 route add -net 224.0.0.0 netmask 240.0.0.0 dev lo
-$easy_install_2 pip
-pip install --upgrade tox
-chmod g+w . -R
 useradd test -G root -m
-LANG=en_US.UTF-8 sudo -u test tox -e py27-tests
 pushd ../p3dir
-easy_install_3=$(ls /usr/bin |grep easy_install |grep 3)
-$easy_install_3 pip
-pip install --upgrade tox
+pip3 install --upgrade tox
 chmod g+w . -R
-LANG=en_US.UTF-8 sudo -u test tox -e py36-tests
+LANG=en_US.UTF-8 tox -e py36-alldeps-nocov
 popd
 
 %files
@@ -128,6 +133,12 @@ popd
 %{_bindir}/cftp3
 
 %changelog
+*   Wed Mar 04 2020 Tapas Kundu <tkundu@vmware.com> 19.10.0-2
+-   Fix make check
+*   Mon Nov 18 2019 Tapas Kundu <tkundu@vmware.com> 19.10.0-1
+-   Updated to 19.10.0 release
+*   Fri Aug 30 2019 Tapas Kundu <tkundu@vmware.com> 18.7.0-3
+-   Added requires as PyHamcrest
 *   Tue Oct 30 2018 Tapas Kundu <tkundu@vmware.com> 18.7.0-2
 -   Moved build requires from subpackage
 -   Added attrs package in requires.

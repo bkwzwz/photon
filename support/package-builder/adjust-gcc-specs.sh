@@ -41,6 +41,7 @@ CC1PLUS_EXTRA=""
 CPP_EXTRA=""
 LIBGCC_EXTRA=""
 STARTFILE=""
+ENDFILE=""
 LINK_EXTRA=""
 
 if [ $USE_STACK_PROTECTOR -eq 1 ]; then
@@ -53,12 +54,13 @@ if [ $USE_FORTIFY_SOURCE -eq 1 ]; then
 fi
 
 if [ $USE_PIE -eq 1 ]; then
-  CC1_EXTRA="$CC1_EXTRA %{fno-pie|fno-PIE|fpic|fPIC|shared:;:-fPIE -fpie}"
-  CC1PLUS_EXTRA="$CC1PLUS_EXTRA %{fno-pie|fno-PIE|fpic|fPIC|shared:;:-fPIE -fpie}"
+  CC1_EXTRA="$CC1_EXTRA %{fno-pie|fno-PIE|fpic|fPIC|fPIE|shared:;:-fpie}"
+  CC1PLUS_EXTRA="$CC1PLUS_EXTRA %{fno-pie|fno-PIE|fpic|fPIC|fPIE|shared:;:-fpie}"
   # pie flag requires shared libgcc_s during linking.
   LIBGCC_EXTRA="$LIBGCC_EXTRA %{!static:--as-needed -lgcc_s --no-as-needed}"
   # replace default startfile rules to use crt that PIE code requires.
   STARTFILE="%{!shared: %{pg|p|profile:gcrt1.o%s;:Scrt1.o%s}} crti.o%s %{static:crtbeginT.o%s;:crtbeginS.o%s}"
+  ENDFILE="%{static:crtend.o%s;:crtendS.o%s} crtn.o%s"
   LINK_EXTRA="$LINK_EXTRA %{r|nostdlib|fno-pie|fno-PIE|fno-pic|fno-PIC|shared|static:;:-pie}"
 fi
 
@@ -102,6 +104,13 @@ if [ -n "$STARTFILE" ]; then
   echo "*startfile:" >> $SPECFILE
   # replace
   echo "$STARTFILE" >> $SPECFILE
+fi
+
+if [ -n "$ENDFILE" ]; then
+  echo >> $SPECFILE
+  echo "*endfile:" >> $SPECFILE
+  # replace
+  echo "$ENDFILE" >> $SPECFILE
 fi
 
 if [ -n "$LINK_EXTRA" ]; then

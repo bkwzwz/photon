@@ -4,7 +4,6 @@ import copy
 from PackageBuildDataGenerator import PackageBuildDataGenerator
 from Logger import Logger
 from constants import constants
-import docker
 from CommandUtils import CommandUtils
 from PackageUtils import PackageUtils
 from ToolChainUtils import ToolChainUtils
@@ -31,33 +30,61 @@ class PackageManager(object):
         self.listOfPackagesAlreadyBuilt = set()
         self.pkgBuildType = pkgBuildType
         if self.pkgBuildType == "container":
+            import docker
             self.dockerClient = docker.from_env(version="auto")
 
     def buildToolChain(self):
+        self.logger.info("Step 1 : Building the core toolchain packages for " + constants.currentArch)
+        self.logger.info(constants.listCoreToolChainPackages)
+        self.logger.info("")
+
         pkgCount = 0
-        try:
-            tUtils = ToolChainUtils()
-            pkgCount = tUtils.buildCoreToolChainPackages()
-        except Exception as e:
-            self.logger.error("Unable to build tool chain")
-            self.logger.error(e)
-            raise e
+        pkgUtils = PackageUtils(self.logName, self.logPath)
+        coreToolChainYetToBuild = []
+        doneList = []
+        for package in constants.listCoreToolChainPackages:
+            version = SPECS.getData().getHighestVersion(package)
+            rpmPkg = pkgUtils.findRPMFile(package, version)
+            self.sortedPackageList.append(package+"-"+version)
+            if rpmPkg is not None:
+                doneList.append(package+'-'+version)
+                continue
+            else:
+                coreToolChainYetToBuild.append(package)
+
+        self.listOfPackagesAlreadyBuilt = set(doneList)
+        pkgCount = len(coreToolChainYetToBuild)
+        if coreToolChainYetToBuild:
+            self.logger.info("The following core toolchain packages need to be built :")
+            self.logger.info(coreToolChainYetToBuild)
+        else:
+            self.logger.info("Core toolchain packages are already available")
+            self.logger.info("")
+            return pkgCount
+
+        Scheduler.coreToolChainBuild = True
+        self._buildPackages(1)
+        Scheduler.coreToolChainBuild = False
+        self.logger.debug("Successfully built core toolchain")
+        self.logger.info("-" * 45 + "\n")
         return pkgCount
 
     def buildToolChainPackages(self, buildThreads):
         pkgCount = self.buildToolChain()
-        if self.pkgBuildType == "container":
-            # Stage 1 build container
-            #TODO image name constants.buildContainerImageName
-            if pkgCount > 0 or not self.dockerClient.images.list(constants.buildContainerImage):
-                self._createBuildContainer(True)
-        self.logger.info("Step 2 : Building stage 2 of the toolchain...")
-        self.logger.info(constants.listToolChainPackages)
-        self.logger.info("")
-        self._buildGivenPackages(constants.listToolChainPackages, buildThreads)
-        self.logger.info("The entire toolchain is now available")
-        self.logger.info(45 * '-')
-        self.logger.info("")
+        # Stage 2 makes sence only for native tools
+        if not constants.crossCompiling:
+            if self.pkgBuildType == "container":
+                # Stage 1 build container
+                #TODO image name constants.buildContainerImageName
+                if pkgCount > 0 or not self.dockerClient.images.list(constants.buildContainerImage):
+                    self._createBuildContainer(True)
+            self.logger.info("Step 2 : Building stage 2 of the toolchain...")
+            self.logger.info(constants.listToolChainPackages)
+            self.logger.info("")
+            self._buildGivenPackages(constants.listToolChainPackages, buildThreads)
+            self.logger.info("The entire toolchain is now available")
+            self.logger.info(45 * '-')
+            self.logger.info("")
         if self.pkgBuildType == "container":
             # Stage 2 build container
             #TODO: rebuild container only if anything in listToolChainPackages was built
@@ -66,9 +93,11 @@ class PackageManager(object):
     def buildPackages(self, listPackages, buildThreads):
         if constants.rpmCheck:
             constants.rpmCheck = False
+            constants.addMacro("with_check", "0")
             self.buildToolChainPackages(buildThreads)
             self._buildTestPackages(buildThreads)
             constants.rpmCheck = True
+            constants.addMacro("with_check", "1")
             self._buildGivenPackages(listPackages, buildThreads)
         else:
             self.buildToolChainPackages(buildThreads)
@@ -128,8 +157,11 @@ class PackageManager(object):
                     not constants.rpmCheck):
                 listPackagesToBuild.remove(pkg)
 
-        if not self._readPackageBuildData(listPackagesToBuild):
-            return False
+        if constants.rpmCheck:
+            self.sortedPackageList = listPackagesToBuild
+        else:
+            if not self._readPackageBuildData(listPackagesToBuild):
+                return False
 
         if self.sortedPackageList:
             self.logger.info("List of packages yet to be built...")
@@ -167,7 +199,9 @@ class PackageManager(object):
         if not returnVal:
             self.logger.error("Unable to set parameters. Terminating the package manager.")
             raise Exception("Unable to set parameters")
+        self._buildPackages(buildThreads)
 
+    def _buildPackages(self, buildThreads):
         statusEvent = threading.Event()
         self._initializeScheduler(statusEvent)
         self._initializeThreadPool(statusEvent)

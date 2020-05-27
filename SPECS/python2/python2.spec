@@ -1,18 +1,18 @@
 Summary:        A high-level scripting language
 Name:           python2
-Version:        2.7.15
-Release:        4%{?dist}
+Version:        2.7.17
+Release:        1%{?dist}
 License:        PSF
 URL:            http://www.python.org/
 Group:          System Environment/Programming
 Vendor:         VMware, Inc.
 Distribution:   Photon
 Source0:        http://www.python.org/ftp/python/%{version}/Python-%{version}.tar.xz
-%define sha1    Python=f99348a095ec4a6411c84c0d15343d11920c9724
+%define sha1    Python=dc5784d11d09c29fbf3fc155e2f242b3d3309454
 Patch0:         cgi.patch
 Patch1:         added-pyopenssl-ipaddress-certificate-validation.patch
 Patch2:         python2-support-photon-platform.patch
-Patch3:         CVE-2018-14647.patch
+Patch3:         CVE-2019-17514.patch
 BuildRequires:  pkg-config >= 0.28
 BuildRequires:  bzip2-devel
 BuildRequires:  openssl-devel
@@ -21,12 +21,17 @@ BuildRequires:  libffi-devel >= 3.0.13
 BuildRequires:  sqlite-devel
 BuildRequires:  ncurses-devel
 BuildRequires:  readline-devel
+# cross compilation requires native python2 installed
+%define BuildRequiresNative python2
 Requires:       openssl
 Requires:       python2-libs = %{version}-%{release}
 Provides:       python-sqlite
 Provides:       python(abi)
 Provides:       /bin/python
 Provides:       /bin/python2
+%if %{with_check}
+BuildRequires:  iana-etc
+%endif
 
 %description
 The Python 2 package contains the Python development environment. It
@@ -117,7 +122,15 @@ The test package contains all regression tests for Python as well as the modules
 
 %build
 export OPT="${CFLAGS}"
+if [ %{_host} != %{_build} ]; then
+  sed -i 's/\tPYTHONPATH/\t-PYTHONPATH/' Makefile.pre.in
+  export ac_cv_buggy_getaddrinfo=no
+  export ac_cv_file__dev_ptmx=yes
+  export ac_cv_file__dev_ptc=no
+fi
 %configure \
+    CFLAGS="%{optflags}" \
+    CXXFLAGS="%{optflags}" \
     --enable-shared \
     --with-ssl \
     --with-system-expat \
@@ -143,13 +156,40 @@ rm -f $RPM_BUILD_ROOT%{_libdir}/python2.7/LICENSE.txt
 find %{buildroot}%{_libdir} -name '*.pyc' -delete
 find %{buildroot}%{_libdir} -name '*.pyo' -delete
 
-%post   -p /sbin/ldconfig
-%postun -p /sbin/ldconfig
+%post
+if [ "$(stat -c %d:%i /)" != "$(stat -c %d:%i /proc/1/root/.)" ]; then
+#if we are in chroot
+    ln -sf /usr/bin/python2 /usr/bin/python
+elif [ ! -f "/usr/bin/python3" ]; then
+    ln -sf /usr/bin/python2 /usr/bin/python
+else
+#if we are updating only python2, then
+#we should set python link to python3
+#as previously python was link to python2
+    ln -sf /usr/bin/python3 /usr/bin/python
+fi
+/sbin/ldconfig
+
+%postun
+#if python3 is not present and we uninstall python2
+#we will delete the symlink
+if [ ! -f "/usr/bin/python3" ]; then
+    if [ $1 -eq 0 ] ; then
+        rm /usr/bin/python
+    fi
+else
+#if we are downgrading/uninstalling python2,
+#and python3 is present. then
+#we should set python link to python3
+    ln -sf /usr/bin/python3 /usr/bin/python
+fi
+/sbin/ldconfig
+
 %clean
 rm -rf %{buildroot}/*
 
 %check
-make test
+LANG=en_US.UTF-8 make %{?_smp_mflags} test
 
 %files
 %defattr(-, root, root)
@@ -171,7 +211,7 @@ make test
 %exclude %{_libdir}/python2.7/test
 #%exclude %{_libdir}/python2.7/unittest
 %exclude %{_libdir}/python2.7/lib-dynload/_ctypes_test.so
-
+%ghost %{_bindir}/python
 
 %files libs
 %defattr(-,root,root)
@@ -230,6 +270,29 @@ make test
 %{_libdir}/python2.7/test/*
 
 %changelog
+*   Sat Dec 07 2019 Tapas Kundu <tkundu@vmware.com> 2.7.17-1
+-   Update to 2.7.17
+-   Exclude /usr/bin/python
+-   Link python to python2 if python3 doesnt exists
+-   Fix make check
+*   Tue Nov 26 2019 Alexey Makhalov <amakhalov@vmware.com> 2.7.16-3
+-   Cross compilation support
+*   Tue Nov 05 2019 Tapas Kundu <tkundu@vmware.com> 2.7.16-2
+-   Fix for CVE-2019-17514
+*   Sun Oct 20 2019 Tapas Kundu <tkundu@vmware.com> 2.7.16-1
+-   Updated to 2.7.16
+-   Fix for CVE-2019-16935
+-   Fix for CVE-2018-20852
+*   Mon Sep 16 2019 Tapas Kundu <tkundu@vmware.com> 2.7.15-8
+-   Fix for CVE-2019-16056
+*   Wed May 22 2019 Tapas Kundu <tkundu@vmware.com> 2.7.15-7
+-   Patched reworked changes for CVE-2019-9948
+-   Patch for CVE-2019-9740
+-   Fix for CVE-2019-10160
+*   Thu Mar 28 2019 Tapas Kundu <tkundu@vmware.com> 2.7.15-6
+-   Fix for CVE-2019-9948
+*   Tue Mar 12 2019 Tapas Kundu <tkundu@vmware.com> 2.7.15-5
+-   Added fix for CVE-2019-9636
 *   Thu Jan 10 2019 Alexey Makhalov <amakhalov@vmware.com> 2.7.15-4
 -   Mode libpython2.7.so to python2-libs
 -   Remove python2 dependency from python2-libs

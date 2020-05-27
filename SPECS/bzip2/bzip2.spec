@@ -1,7 +1,7 @@
 Summary:        Contains programs for compressing and decompressing files
 Name:           bzip2
-Version:        1.0.6
-Release:        9%{?dist}
+Version:        1.0.8
+Release:        3%{?dist}
 License:        BSD
 URL:            http://www.bzip.org/
 Group:          System Environment/Base
@@ -9,11 +9,10 @@ Vendor:         VMware, Inc.
 Distribution:   Photon
 Source0:        http://www.bzip.org/%{version}/%{name}-%{version}.tar.gz
 Provides:       libbz2.so.1()(64bit)
-%define sha1 bzip2=3f89f861209ce81a6bab1fd1998c0ef311712002
+%define sha1 bzip2=bf7badf7e248e0ecf465d33c2f5aeec774209227
 Patch0:         http://www.linuxfromscratch.org/patches/lfs/7.2/bzip2-1.0.6-install_docs-1.patch
-Patch1:         CVE-2016-3189.patch
 Requires:       bzip2-libs = %{version}-%{release}
-Conflicts:      toybox
+Conflicts:      toybox < 0.8.2-2
 
 %description
 The Bzip2 package contains programs for compressing and
@@ -35,14 +34,20 @@ This package contains minimal set of shared bzip2 libraries.
 %prep
 %setup -q
 %patch0 -p1
-%patch1 -p1
 sed -i 's@\(ln -s -f \)$(PREFIX)/bin/@\1@' Makefile
 sed -i "s@(PREFIX)/man@(PREFIX)/share/man@g" Makefile
 
 %build
-make VERBOSE=1 %{?_smp_mflags} -f Makefile-libbz2_so
+if [ %{_host} != %{_build} ]; then
+  MFLAGS="CC=%{_arch}-unknown-linux-gnu-gcc AR=%{_arch}-unknown-linux-gnu-ar RANLIB=%{_arch}-unknown-linux-gnu-ranlib"
+  # disable buildtime testing
+  sed -i 's/all: libbz2.a bzip2 bzip2recover test/all: libbz2.a bzip2 bzip2recover/' Makefile
+else
+  MFLAGS=
+fi
+make VERBOSE=1 %{?_smp_mflags} -f Makefile-libbz2_so $MFLAGS
 make clean
-make VERBOSE=1 %{?_smp_mflags}
+make VERBOSE=1 %{?_smp_mflags} $MFLAGS
 
 %install
 make PREFIX=%{buildroot}/usr install
@@ -94,6 +99,13 @@ make %{?_smp_mflags} check
 %{_lib}/libbz2.so.*
 
 %changelog
+*   Thu Apr 16 2020 Alexey Makhalov <amakhalov@vmware.com> 1.0.8-3
+-   Do not conflict with toybox >= 0.8.2-2
+*   Tue Nov 26 2019 Alexey Makhalov <amakhalov@vmware.com> 1.0.8-2
+-   Cross compilation support
+*   Fri Oct 18 2019 Shreyas B <shreyasb@vmware.com> 1.0.8-1
+-   Upgrade to 1.0.8.
+-   Remove CVE-2016-3189.patch as the fix already available in the latest version.
 *   Tue Oct 2 2018 Michelle Wang <michellew@vmware.com> 1.0.6-9
 -   Add conflicts toybox.
 *   Sun Jun 04 2017 Bo Gan <ganb@vmware.com> 1.0.6-8

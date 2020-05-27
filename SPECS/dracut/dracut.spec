@@ -4,7 +4,7 @@
 %define _unitdir /usr/lib/systemd/system
 
 Name:           dracut
-Version:        048
+Version:        050
 Release:        1%{?dist}
 Group:          System Environment/Base
 # The entire source code is GPLv2+
@@ -12,10 +12,13 @@ Group:          System Environment/Base
 License:        GPLv2+ and LGPLv2+
 URL:            https://dracut.wiki.kernel.org/
 Source0:        http://www.kernel.org/pub/linux/utils/boot/dracut/dracut-%{version}.tar.xz
-%define sha1    dracut=70daaf4ef1175c87ab35ec76bb84ca1388a13a5d
+%define sha1    dracut=44f5b7304976b57ac4fca4dd94e99d1a131e6f62
 Source1:        https://www.gnu.org/licenses/lgpl-2.1.txt
 Patch1:         disable-xattr.patch
 Patch2:         fix-initrd-naming-for-photon.patch
+Patch3:         lvm-no-read-only-locking.patch
+Patch4:         fips-changes.patch
+
 Summary:        dracut to create initramfs
 Vendor:         VMware, Inc.
 Distribution:   Photon
@@ -52,11 +55,12 @@ This package contains tools to assemble the local initrd and host configuration.
 cp %{SOURCE1} .
 %patch1 -p1
 %patch2 -p1
+%patch3 -p1
+%patch4 -p1
 
 %build
 %configure --systemdsystemunitdir=%{_unitdir} --bashcompletiondir=$(pkg-config --variable=completionsdir bash-completion) \
            --libdir=%{_prefix}/lib   --disable-documentation
-
 make %{?_smp_mflags}
 
 %install
@@ -67,7 +71,6 @@ make %{?_smp_mflags} install \
 
 echo "DRACUT_VERSION=%{version}-%{release}" > $RPM_BUILD_ROOT/%{dracutlibdir}/dracut-version.sh
 
-rm -fr -- $RPM_BUILD_ROOT/%{dracutlibdir}/modules.d/01fips
 rm -fr -- $RPM_BUILD_ROOT/%{dracutlibdir}/modules.d/02fips-aesni
 
 rm -fr -- $RPM_BUILD_ROOT/%{dracutlibdir}/modules.d/00bootchart
@@ -96,8 +99,6 @@ rm -f $RPM_BUILD_ROOT%{_mandir}/man?/*suse*
 mkdir -p $RPM_BUILD_ROOT%{_sbindir}
 ln -sr $RPM_BUILD_ROOT%{_bindir}/dracut $RPM_BUILD_ROOT%{_sbindir}/dracut
 
-%check
-make %{?_smp_mflags} -k clean  check
 %clean
 rm -rf -- $RPM_BUILD_ROOT
 
@@ -158,6 +159,14 @@ rm -rf -- $RPM_BUILD_ROOT
 %dir /var/lib/dracut/overlay
 
 %changelog
+*   Fri Apr 24 2020 Susant Sahani <ssahani@vmware.com> 050-1
+-   Update to 050
+*   Fri Apr 03 2020 Vikash Bansal <bvikas@vmware.com> 048-4
+-   Added fips module
+*   Wed Apr 01 2020 Susant Sahani <ssahani@vmware.com> 048-3
+-   systemd: install systemd-tty-ask-password-agent systemd-ask-password
+*   Thu Oct 10 2019 Alexey Makhalov <amakhalov@vmware.com> 048-2
+-   lvm.conf: Do not set read-only locking.
 *   Mon Oct 01 2018 Alexey Makhalov <amakhalov@vmware.com> 048-1
 -   Version update
 *   Thu Dec 28 2017 Divya Thaluru <dthaluru@vmware.com>  045-6

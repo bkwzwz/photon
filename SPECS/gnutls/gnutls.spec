@@ -1,15 +1,15 @@
 Summary:        The GnuTLS Transport Layer Security Library
 Name:           gnutls
-Version:        3.6.3
-Release:        2%{?dist}
+Version:        3.6.13
+Release:        1%{?dist}
 License:        GPLv3+ and LGPLv2+
 URL:            http://www.gnutls.org
-Source0:        https://www.gnupg.org/ftp/gcrypt/gnutls/v3.5/%{name}-%{version}.tar.xz
-%define sha1    gnutls=ac96787a7fbd550a2b201e64c0e752821e90fed7
+Source0:        https://www.gnupg.org/ftp/gcrypt/gnutls/v3.6/%{name}-%{version}.tar.xz
+%define sha1    gnutls=0d3d0d093d6a7cf589612a7c21dbb46cb31c644b
 Group:          System Environment/Libraries
 Vendor:         VMware, Inc.
 Distribution:   Photon
-Patch0:         gnutls_3.6.3_default_priority.patch
+Patch0:         gnutls-3.6.9-default-priority.patch
 BuildRequires:  nettle-devel
 BuildRequires:  autogen-libopts-devel
 BuildRequires:  libtasn1-devel
@@ -52,6 +52,7 @@ developing applications that use gnutls.
     --with-included-unistring \
     --with-system-priority-file=%{_sysconfdir}/gnutls/default-priorities \
     --with-default-trust-store-file=%{_sysconfdir}/pki/tls/certs/ca-bundle.crt
+
 make %{?_smp_mflags}
 
 %install
@@ -80,7 +81,7 @@ make %{?_smp_mflags} check
 %{_mandir}/man1/*
 %{_datadir}/locale/*
 %{_docdir}/gnutls/*.png
-%{_libdir}/guile/2.0/*.so*
+%{_libdir}/guile/2.0/extensions/*.so*
 %{_libdir}/guile/2.0/site-ccache/gnutls*
 %{_datadir}/guile/site/2.0/gnutls*
 %config(noreplace) %{_sysconfdir}/gnutls/default-priorities
@@ -93,6 +94,15 @@ make %{?_smp_mflags} check
 %{_mandir}/man3/*
 
 %changelog
+*   Fri Apr 10 2020 Tapas Kundu <tkundu@vmware.com> 3.6.13-1
+-   Update to 3.6.13
+-   Fix CVE-2020-11501
+*   Thu Oct 24 2019 Shreenidhi Shedi <sshedi@vmware.com> 3.6.9-2
+-   Added default priority patch.
+*   Thu Oct 17 2019 Shreenidhi Shedi <sshedi@vmware.com> 3.6.9-1
+-   Upgrade to version 3.6.9
+*   Mon Apr 15 2019 Keerthana K <keerthanak@vmware.com> 3.6.3-3
+-   Fix CVE-2019-3829, CVE-2019-3836
 *   Wed Oct 03 2018 Tapas Kundu <tkundu@vmware.com> 3.6.3-2
 -   Including default-priority in the RPM packaging.
 *   Thu Sep 06 2018 Anish Swaminathan <anishs@vmware.com> 3.6.3-1

@@ -4,7 +4,7 @@
 Summary:        Package manager
 Name:           rpm
 Version:        4.14.2
-Release:        4%{?dist}
+Release:        8%{?dist}
 License:        GPLv2+
 URL:            http://rpm.org
 Group:          Applications/System
@@ -20,6 +20,8 @@ Requires:       bash
 Requires:       libdb
 Requires:       rpm-libs = %{version}-%{release}
 Requires:       libarchive
+Requires:       lua
+BuildRequires:  lua-devel
 BuildRequires:  libarchive-devel
 BuildRequires:  libdb-devel
 BuildRequires:  popt-devel
@@ -56,8 +58,10 @@ Shared libraries librpm and librpmio
 
 %package build
 Requires:       perl
+Requires:       lua
 Requires:       %{name}-devel = %{version}-%{release}
 Requires:       elfutils-libelf
+Requires:       cpio
 Summary: Binaries, scripts and libraries needed to build rpms.
 %description build
 Binaries, libraries and scripts to build rpms.
@@ -102,7 +106,8 @@ sed -i 's/extra_link_args/library_dirs/g' python/setup.py.in
         --disable-static \
         --enable-python \
         --with-cap \
-        --without-lua \
+        --with-lua \
+        --with-vendor=vmware \
         --disable-silent-rules \
         --with-external-db
 make %{?_smp_mflags}
@@ -176,7 +181,7 @@ rm -rf %{buildroot}
 
 %files libs
 %defattr(-,root,root)
-%{_sysconfdir}/rpm/macros
+%config(noreplace) %{_sysconfdir}/rpm/macros
 %{_libdir}/librpmio.so.*
 %{_libdir}/librpm.so.*
 %{_libdir}/rpm/macros
@@ -248,6 +253,14 @@ rm -rf %{buildroot}
 %{python3_sitelib}/*
 
 %changelog
+*   Wed Apr 29 2020 Keerthana K <keerthanak@vmware.com> 4.14.2-8
+-   Added %config(noreplace) for /etc/rpm/macros file.
+*   Sat Jan 04 2020 Neal Gompa <ngompa13@gmail.com> 4.14.2-7
+-   Configure RPMCANONVENDOR to vmware
+*   Thu Oct 31 2019 Alexey Makhalov <amakhalov@vmware.com> 4.14.2-6
+-   rpm-build depends on cpio
+*   Thu Oct 10 2019 Tapas Kundu <tkundu@vmware.com> 4.14.2-5
+-   Enabled lua support
 *   Wed Oct 03 2018 Alexey Makhalov <amakhalov@vmware.com> 4.14.2-4
 -   Clean up the file in accordance to spec file checker
 *   Mon Oct 01 2018 Alexey Makhalov <amakhalov@vmware.com> 4.14.2-3

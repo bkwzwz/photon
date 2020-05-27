@@ -1,8 +1,6 @@
-%{!?python2_sitelib: %global python2_sitelib %(python2 -c "from distutils.sysconfig import get_python_lib;print(get_python_lib())")}
-%{!?python3_sitelib: %global python3_sitelib %(python3 -c "from distutils.sysconfig import get_python_lib;print(get_python_lib())")}
-Summary:        Userland logical volume management tools 
+Summary:        Userland logical volume management tools
 Name:           lvm2
-Version:        2.02.181
+Version:        2.03.09
 Release:        1%{?dist}
 License:        GPLv2, BSD 2-Clause and LGPLv2.1
 Group:          System Environment/Base
@@ -10,20 +8,24 @@ URL:            http://sources.redhat.com/dm
 Vendor:         VMware, Inc.
 Distribution:   Photon
 Source0:        ftp://sources.redhat.com/pub/lvm2/releases/LVM2.%{version}.tgz
-%define sha1    LVM2=2802799c60ef4f61534df1e40bcc29e4e043b29b
-Source1:        lvm2-activate.service
+%define sha1    LVM2=15a90d5039a2a1e9f67611a2a6c2faa72e8996aa
+
 Patch0:         lvm2-set-default-preferred_names.patch
+
 BuildRequires:  libselinux-devel, libsepol-devel
 BuildRequires:  ncurses-devel
 BuildRequires:  readline-devel
 BuildRequires:  systemd-devel
 BuildRequires:  thin-provisioning-tools
 BuildRequires:  libaio-devel
+
 Requires:       device-mapper-libs = %{version}-%{release}
 Requires:       device-mapper-event-libs = %{version}-%{release}
 Requires:       device-mapper-event = %{version}-%{release}
 Requires:       device-mapper = %{version}-%{release}
 Requires:       systemd
+Requires:       libaio
+Requires:       %{name}-libs = %{version}-%{release}
 
 %description
 LVM2 includes all of the support for handling read/write operations on
@@ -59,32 +61,6 @@ This package contains shared lvm2 libraries for applications.
 
 %postun libs -p /sbin/ldconfig
 
-%package        python-libs
-Summary:        Python module to access LVM
-License:        LGPLv2
-Group:          Development/Libraries
-BuildRequires:  python2-devel
-Requires:       %{name}-libs = %{version}-%{release}
-Requires:       python2-libs
-Requires:       python2
-
-%description    python-libs
-Python module to allow the creation and use of LVM
-logical volumes, physical volumes, and volume groups.
-
-%package    -n  python3-lvm2-libs
-Summary:        Python module to access LVM
-License:        LGPLv2
-Group:          Development/Libraries
-BuildRequires:  python3-devel
-Requires:       %{name}-libs = %{version}-%{release}
-Requires:       python3-libs
-Requires:       python3
-
-%description -n python3-lvm2-libs
-Python module to allow the creation and use of LVM
-logical volumes, physical volumes, and volume groups.
-
 %package -n device-mapper
 Summary:    Device mapper utility
 Group:      System Environment/Base
@@ -118,7 +94,7 @@ Requires:   systemd
 %description -n device-mapper-libs
 This package contains the device-mapper shared library, libdevmapper.
 
-%post -n device-mapper-libs 
+%post -n device-mapper-libs
 /sbin/ldconfig
 
 %postun -n device-mapper-libs
@@ -136,7 +112,7 @@ This package contains the dmeventd daemon for monitoring the state
 of device-mapper devices.
 
 %post -n device-mapper-event
-%systemd_post dm-event.service dm-event.socket 
+%systemd_post dm-event.service dm-event.socket
 if [ $1 -eq 1 ];then
     # This is initial installation
     systemctl start dm-event.socket
@@ -179,8 +155,6 @@ the device-mapper event library.
 %prep
 %setup -q -n LVM2.%{version}
 %patch0 -p1 -b .preferred_names
-#%patch1 -p1 -b .enable_lvmetad
-#%patch2 -p1 -b .udev_no_mpath
 
 %build
 %define _default_pid_dir /run
@@ -190,7 +164,6 @@ the device-mapper event library.
 %define _udevdir /lib/udev/rules.d
 
 %configure \
-    --prefix=%{_prefix} \
     --with-usrlibdir=%{_libdir} \
     --with-default-dm-run-dir=%{_default_dm_run_dir} \
     --with-default-run-dir=%{_default_run_dir} \
@@ -205,8 +178,6 @@ the device-mapper event library.
     --enable-cmdlib \
     --enable-dmeventd \
     --enable-use_lvmetad \
-    --enable-python2-bindings \
-    --enable-python3-bindings \
     --enable-blkid_wiping \
     --enable-lvmetad \
     --with-udevdir=%{_udevdir} --enable-udev_sync \
@@ -223,7 +194,6 @@ make install_system_dirs DESTDIR=%{buildroot}
 make install_systemd_units DESTDIR=%{buildroot}
 make install_systemd_generators DESTDIR=%{buildroot}
 make install_tmpfiles_configuration DESTDIR=%{buildroot}
-cp %{SOURCE1} %{buildroot}/lib/systemd/system/lvm2-activate.service
 
 install -vdm755 %{buildroot}%{_libdir}/systemd/system-preset
 echo "disable lvm2-activate.service" > %{buildroot}%{_libdir}/systemd/system-preset/50-lvm2.preset
@@ -235,26 +205,23 @@ echo "disable lvm2-lvmeatd.service" >> %{buildroot}%{_libdir}/systemd/system-pre
 %systemd_preun lvm2-lvmetad.service lvm2-lvmetad.socket lvm2-monitor.service lvm2-activate.service
 
 %post
-/sbin/ldconfig
+%?ldconfig
+
 %systemd_post lvm2-lvmetad.service lvm2-lvmetad.socket lvm2-monitor.service lvm2-activate.service
 
 %postun
-/sbin/ldconfig
+%ldconfig_postun
+
 %systemd_postun_with_restart lvm2-lvmetad.service lvm2-lvmetad.socket lvm2-monitor.service lvm2-activate.service
 
 %files  devel
 %defattr(-,root,root,-)
-%{_libdir}/liblvm2app.so
 %{_libdir}/liblvm2cmd.so
 %{_libdir}/libdevmapper-event-lvm2.so
-%{_includedir}/lvm2app.h
 %{_includedir}/lvm2cmd.h
-%{_libdir}/pkgconfig/lvm2app.pc
-
 
 %files libs
 %defattr(-,root,root,-)
-%{_libdir}/liblvm2app.so.*
 %{_libdir}/liblvm2cmd.so.*
 %{_libdir}/libdevmapper-event-lvm2.so.*
 %dir %{_libdir}/device-mapper
@@ -268,12 +235,6 @@ echo "disable lvm2-lvmeatd.service" >> %{buildroot}%{_libdir}/systemd/system-pre
 %{_libdir}/libdevmapper-event-lvm2raid.so
 %{_libdir}/libdevmapper-event-lvm2thin.so
 %{_libdir}/libdevmapper-event-lvm2vdo.so
-
-%files  python-libs
-%{python2_sitelib}/*
-
-%files -n  python3-lvm2-libs
-%{python3_sitelib}/*
 
 %files -n device-mapper
 %defattr(-,root,root,-)
@@ -343,8 +304,14 @@ echo "disable lvm2-lvmeatd.service" >> %{buildroot}%{_libdir}/systemd/system-pre
 %{_sysconfdir}/lvm/profile/*
 %ghost %{_sysconfdir}/lvm/cache/.cache
 
-
 %changelog
+*   Sat Apr 04 2020 Susant Sahani <ssahani@vmware.com> 2.03.09-1
+-   Bump version 2.03.09
+-   Remove deprecated python bindings
+*   Thu Oct 24 2019 Piyush Gupta <guptapi@vmware.com> 2.02.181-3
+-   Fixed install time dependency
+*   Thu Oct 03 2019 Harinadh Dommaraju <hdommaraju@vmware.com> 2.02.181-2
+-   Added libaio to resolve linkage errors
 *   Wed Sep 05 2018 Srivatsa S. Bhat <srivatsa@csail.mit.edu> 2.02.181-1
 -   Update to version 2.02.181
 *   Thu Jun 29 2017 Divya Thaluru <dthaluru@vmware.com>  2.02.171-3
@@ -363,9 +330,9 @@ echo "disable lvm2-lvmeatd.service" >> %{buildroot}%{_libdir}/systemd/system-pre
 -   GA - Bump release of all rpms
 *   Thu May 05 2016 Kumar Kaushik <kaushikk@vmware.com> 2.02.141-4
 -   Adding upgrade support in pre/post/un scripts.
-*   Thu Jan 28 2016 Anish Swaminathan <anishs@vmware.com> 2.02.141-3 
+*   Thu Jan 28 2016 Anish Swaminathan <anishs@vmware.com> 2.02.141-3
 -   Fix post scripts for lvm
-*   Thu Jan 28 2016 Anish Swaminathan <anishs@vmware.com> 2.02.141-2 
+*   Thu Jan 28 2016 Anish Swaminathan <anishs@vmware.com> 2.02.141-2
 -   Adding device mapper event to Requires
 *   Tue Jan 12 2016 Anish Swaminathan <anishs@vmware.com>  2.02.116-4
 -   Change config file attributes.

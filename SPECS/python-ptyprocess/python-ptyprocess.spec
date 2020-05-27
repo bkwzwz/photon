@@ -4,7 +4,7 @@
 Summary:        Run a subprocess in a pseudo terminal.
 Name:           python-ptyprocess
 Version:        0.6.0
-Release:        2%{?dist}
+Release:        4%{?dist}
 License:        ISC
 Url:            https://github.com/pexpect/ptyprocess
 Group:          Development/Languages/Python
@@ -15,12 +15,20 @@ Source0:        https://files.pythonhosted.org/packages/source/p/ptyprocess/ptyp
 
 BuildRequires:  python2-devel
 BuildRequires:  python-setuptools
+BuildRequires:  python3-devel
+BuildRequires:  python3-setuptools
 %if %{with_check}
 BuildRequires:  openssl-devel
 BuildRequires:  curl-devel
 BuildRequires:  python-pytest
 BuildRequires:  python-atomicwrites
 BuildRequires:  python-attrs
+BuildRequires:  python3-pytest
+BuildRequires:  python3-atomicwrites
+BuildRequires:  python3-attrs
+BuildRequires:  python3-xml
+BuildRequires:  python-pip
+BuildRequires:  python3-pip
 %endif
 Requires:       python2
 Requires:       python2-libs
@@ -33,14 +41,6 @@ process and its pty.
 
 %package -n python3-ptyprocess
 Summary:        Python3 package for ptyprocess
-BuildRequires:  python3-devel
-%if %{with_check}
-BuildRequires:  python3-setuptools
-BuildRequires:  python3-pytest
-BuildRequires:  python3-atomicwrites
-BuildRequires:  python3-attrs
-BuildRequires:  python3-xml
-%endif
 Requires:       python3
 Requires:       python3-libs
 
@@ -69,16 +69,13 @@ python3 setup.py install --root=%{buildroot}
 popd
 
 %check
-easy_install_2=$(ls /usr/bin |grep easy_install |grep 2)
-$easy_install_2 pathlib2 funcsigs pluggy more_itertools
+pip install pathlib2 funcsigs pluggy more_itertools
 LANG=en_US.UTF-8  PYTHONPATH=%{buildroot}%{python2_sitelib} \
 py.test2
 
-easy_install_3=$(ls /usr/bin |grep easy_install |grep 3)
-$easy_install_3 pathlib2 funcsigs pluggy more_itertools
+pip3 install pathlib2 funcsigs pluggy more_itertools
 LANG=en_US.UTF-8  PYTHONPATH=%{buildroot}%{python3_sitelib} \
 py.test3
-
 
 %files
 %defattr(-, root, root, -)
@@ -88,6 +85,10 @@ py.test3
 %{python3_sitelib}/*
 
 %changelog
+*   Wed Feb 26 2020 Tapas Kundu <tkundu@vmware.com> 0.6.0-4
+-   Fix make check
+*   Mon Sep 09 2019 Tapas Kundu <tkundu@vmware.com> 0.6.0-3
+-   Fix make check
 *   Thu Dec 06 2018 Ashwin H <ashwinh@vmware.com> 0.6.0-2
 -   Add %check
 *   Sun Sep 09 2018 Tapas Kundu <tkundu@vmware.com> 0.6.0-1

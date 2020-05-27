@@ -1,6 +1,6 @@
 Summary:        Contains the utilities for the ext2 file system
 Name:           e2fsprogs
-Version:        1.44.3
+Version:        1.45.5
 Release:        2%{?dist}
 License:        GPLv2+
 URL:            http://e2fsprogs.sourceforge.net
@@ -8,9 +8,11 @@ Group:          System Environment/Base
 Vendor:         VMware, Inc.
 Distribution:   Photon
 Source0:        http://prdownloads.sourceforge.net/e2fsprogs/%{name}-%{version}.tar.gz
-%define sha1    e2fsprogs=bfe11b75fee61c4d3795ac27eea11f9f7843294b
+%define sha1    e2fsprogs=7c63cfe34319aa90de6f6cf76e17f40248f68802
 Requires:       %{name}-libs = %{version}-%{release}
-Conflicts:      toybox
+Conflicts:      toybox < 0.8.2-2
+BuildRequires:  util-linux-devel
+Requires:       util-linux-libs
 
 %description
 The E2fsprogs package contains the utilities for handling the ext2 file system.
@@ -22,7 +24,7 @@ It contains the libraries: libss and libcom_err
 
 %package    devel
 Summary:    Header and development files for e2fsprogs
-Requires:   %{name} = %{version}
+Requires:   %{name} = %{version}-%{release}
 %description    devel
 It contains the libraries and header files to create applications
 
@@ -38,9 +40,9 @@ These are the additional language files of e2fsprogs
 sed -i -e 's|^LD_LIBRARY_PATH.*|&:/tools/lib|' tests/test_config
 
 %build
-LIBS=-L/tools/lib \
-CFLAGS=-I/tools/include \
-PKG_CONFIG_PATH=/tools/lib/pkgconfig \
+export LIBS=-L/tools/libi; \
+export CFLAGS=-I/tools/include; \
+export PKG_CONFIG_PATH=/tools/lib/pkgconfig
 %configure \
     --with-root-prefix='' \
     --enable-elf-shlibs \
@@ -71,6 +73,7 @@ make %{?_smp_mflags} check
 %files
 %defattr(-,root,root)
 %config %{_sysconfdir}/mke2fs.conf
+%config %{_sysconfdir}/e2scrub.conf
 %{_bindir}/compile_et
 %{_bindir}/mk_cmds
 %{_bindir}/chattr
@@ -127,6 +130,15 @@ make %{?_smp_mflags} check
 %defattr(-,root,root)
 
 %changelog
+*   Thu Apr 16 2020 Alexey Makhalov <amakhalov@vmware.com> 1.45.5-2
+-   Do not conflict with toybox >= 0.8.2-2
+*   Mon Jan 27 2020 Shreyas B. <shreyasb@vmware.com> 1.45.5-1
+-   Make devel depend on the version-release instead of version alone.
+-   Upgrade to v1.45.5.
+*   Tue Nov 26 2019 Alexey Makhalov <amakhalov@vmware.com> 1.44.3-4
+-   Add util-linux dependencies.
+*   Tue Oct 22 2019 Shreyas B. <shreyasb@vmware.com> 1.44.3-3
+-   Fixes for CVE-2019-5094.
 *   Tue Oct 2 2018 Michelle Wang <michellew@vmware.com> 1.44.3-2
 -   Add conflicts toybox.
 *   Mon Sep 10 2018 Alexey Makhalov <amakhalov@vmware.com> 1.44.3-1

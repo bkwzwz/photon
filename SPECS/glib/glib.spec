@@ -1,7 +1,7 @@
 Summary:	Low-level libraries useful for providing data structure handling for C.
 Name:		glib
 Version:	2.58.0
-Release:	2%{?dist}
+Release:	5%{?dist}
 License:	LGPLv2+
 URL:		https://developer.gnome.org/glib/
 Group:		Applications/System
@@ -9,14 +9,18 @@ Vendor:		VMware, Inc.
 Distribution:	Photon
 Source0:	http://ftp.gnome.org/pub/gnome/sources/glib/2.58/%{name}-%{version}.tar.xz
 %define sha1 glib=c00e433c56e0ba3541abc5222aeca4136de10fb8
+Patch0:         glib-CVE-2019-12450.patch
+Patch1:         glib-CVE-2019-13012.patch
 BuildRequires:	pcre-devel
 BuildRequires:	libffi-devel
 BuildRequires:	pkg-config
-BuildRequires:	cmake
 BuildRequires:	which
 BuildRequires:	python-xml
 BuildRequires:	python2 >= 2.7
 BuildRequires:	python2-libs >= 2.7
+BuildRequires:	util-linux-devel
+BuildRequires:	elfutils-libelf-devel
+Requires:	elfutils-libelf
 Requires:	pcre-libs
 Requires:	libffi
 Provides:	pkgconfig(glib-2.0)
@@ -35,8 +39,10 @@ Group:		Development/Libraries
 Requires:	glib = %{version}-%{release}
 Requires:	python-xml
 Requires:	pcre-devel
+Requires:	util-linux-devel
 Requires:	python2
 Requires:	libffi-devel
+Requires:	elfutils-libelf-devel
 
 %description devel
 Static libraries and header files for the support library for the glib library
@@ -51,9 +57,19 @@ Gsettings schemas compiling tool
 
 %prep
 %setup -q
+%patch0 -p1
+%patch1 -p1
+
 %build
 ./autogen.sh
-%configure --with-pcre=system
+if [ %{_host} != %{_build} ]; then
+  export glib_cv_stack_grows=no
+  export ac_cv_func_posix_getpwuid_r=yes
+  export glib_cv_uscore=yes
+fi
+%configure \
+    --with-pcre=system \
+    --with-sysroot=/target-%{_arch}
 make %{?_smp_mflags}
 %install
 make DESTDIR=%{buildroot} install
@@ -90,6 +106,12 @@ make DESTDIR=%{buildroot} install
 %{_datadir}/glib-2.0/schemas/*
 
 %changelog
+*   Fri Aug 09 2019 Alexey Makhalov <amakhalov@vmware.com> 2.58.0-5
+-   Cross compilation support
+*   Tue Jul 09 2019 Ankit Jain <ankitja@vmware.com> 2.58.0-4
+-   Fix for CVE-2019-13012
+*   Mon Jun 03 2019 Ankit Jain <ankitja@vmware.com> 2.58.0-3
+-   Fix for CVE-2019-12450
 *   Mon Dec 10 2018 Alexey Makhalov <amakhalov@vmware.com> 2.58.0-2
 -   glib-devel requires python-xml.
 *   Tue Sep 11 2018 Anish Swaminathan <anishs@vmware.com> 2.58.0-1

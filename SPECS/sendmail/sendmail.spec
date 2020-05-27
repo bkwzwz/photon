@@ -1,13 +1,14 @@
 Summary:        Commonly used Mail transport agent (MTA)
 Name:           sendmail
 Version:        8.15.2
-Release:        15%{?dist}
+Release:        17%{?dist}
 URL:            http://www.sendmail.org/
 License:        BSD and CDDL1.1 and MIT
 Group:          Email/Server/Library
 Vendor:         VMware, Inc.
 Distribution:   Photon
 Source0:        http://ftp.vim.org/pub/mail/sendmail/sendmail-r8/sendmail.8.15.2.tar.gz
+Patch0:         sendmail-8.15.2-glibc-2.30.patch
 BuildRequires:	systemd
 BuildRequires:  openldap
 BuildRequires:  openssl-devel
@@ -26,18 +27,19 @@ Requires:       libdb
 %define sha1 sendmail=5801d4b06f4e38ef228a5954a44d17636eaa5a16
 
 %description
-Sendmail is widely used Mail Transport agent which helps in sending 
-email from one system to another. This program helps in movement 
+Sendmail is widely used Mail Transport agent which helps in sending
+email from one system to another. This program helps in movement
 of email from systems to network and is not just a mail client.
 
 %prep
 
-%setup 
+%setup
+%patch0 -p0
 
 %build
 
 cat >> devtools/Site/site.config.m4 << "EOF"
-APPENDDEF(`confENVDEF',`-DSTARTTLS -DSASL -DLDAPMAP')
+APPENDDEF(`confENVDEF',`-DSTARTTLS -DSASL -DLDAPMAP -DNETINET6')
 APPENDDEF(`confLIBS', `-lssl -lcrypto -lsasl2 -lldap -llber -ldb')
 APPENDDEF(`confINCDIRS', `-I/usr/include/sasl')
 APPENDDEF(`confLIBS', `-lresolv')
@@ -196,6 +198,10 @@ fi
 %exclude %{_sysconfdir}/mail/cf/*
 
 %changelog
+*   Thu Mar 26 2020 Alexey Makhalov <amakhalov@vmware.com> 8.15.2-17
+-   Fix compilation issue with glibc >= 2.30.
+*   Fri Nov 29 2019 Tapas Kundu <tkundu@vmware.com> 8.15.2-16
+-   Build with NETINET6 flag.
 *   Mon Oct 02 2017 Kumar Kaushik <kaushikk@vmware.com> 8.15.2-15
 -   Removed duplicate configuration folder.
 *   Mon Sep 18 2017 Alexey Makhalov <amakhalov@vmware.com> 8.15.2-14
